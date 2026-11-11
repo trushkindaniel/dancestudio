@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Зал «Пульс» — аренда танцевального зала по часам</title>
+<meta name="description" content="Аренда танцевального зала по часам. Выберите время в календаре, оплатите переводом, без звонков.">
+<meta name="theme-color" content="#121014">
+<script>document.documentElement.classList.add('js');</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500;1,600&family=Manrope:wght@400;500;600;700&family=Unbounded:wght@300;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<!-- знак «искра», используется как украшение и маркер -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <symbol id="spark" viewBox="0 0 24 24"><path d="M12 0c.8 6.6 5.4 11.2 12 12-6.6.8-11.2 5.4-12 12-.8-6.6-5.4-11.2-12-12C6.6 11.2 11.2 6.6 12 0z"/></symbol>
+</svg>
+
+<a class="skip" href="#booking">Перейти к записи</a>
+
+<header class="top">
+  <a class="brand" href="#top" aria-label="Зал «Пульс», наверх">
+    <svg class="spark" width="18" height="18" aria-hidden="true"><use href="#spark"/></svg>
+    <span>Пульс</span>
+  </a>
+  <nav class="nav" aria-label="Разделы">
+    <a href="#prices">Цены</a>
+    <a href="#booking">Запись</a>
+    <a href="#gallery">Зал</a>
+    <a href="#rules">Правила</a>
+    <a href="#contacts">Контакты</a>
+  </nav>
+  <a class="btn btn-ghost btn-sm" href="#booking">Записаться</a>
+</header>
+
+<main id="top">
+
+  <!-- HERO -->
+  <section class="hero">
+    <svg class="waves" viewBox="0 0 1200 600" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+      <g fill="none" stroke="currentColor" stroke-width="1">
+        <path d="M0 300 C 150 200, 300 400, 450 300 S 750 200, 900 300 S 1100 380, 1200 300"/>
+        <path d="M0 320 C 150 220, 300 420, 450 320 S 750 220, 900 320 S 1100 400, 1200 320"/>
+        <path d="M0 340 C 150 240, 300 440, 450 340 S 750 240, 900 340 S 1100 420, 1200 340"/>
+        <path d="M0 360 C 150 260, 300 460, 450 360 S 750 260, 900 360 S 1100 440, 1200 360"/>
+        <path d="M0 380 C 150 280, 300 480, 450 380 S 750 280, 900 380 S 1100 460, 1200 380"/>
+        <path d="M0 400 C 150 300, 300 500, 450 400 S 750 300, 900 400 S 1100 480, 1200 400"/>
+      </g>
+    </svg>
+
+    <div class="hero-text">
+      <h1>
+        <span class="h1-line">Зал</span>
+        <span class="h1-line">Пульс<svg class="spark h1-spark" width="44" height="44" aria-hidden="true"><use href="#spark"/></svg></span>
+      </h1>
+      <p class="lead">Аренда танцевального зала по часам. Выбираете время в календаре, переводите деньги и приходите танцевать. Звонить никому не нужно.</p>
+      <div class="cta-row">
+        <a class="btn" href="#booking">Выбрать время</a>
+        <a class="btn btn-ghost" href="#gallery">Посмотреть зал</a>
+      </div>
+      <ul class="facts" aria-label="Коротко о зале">
+        <li><b>от 800 ₽</b><span>за час днём</span></li>
+        <li><b>09–21</b><span>каждый день</span></li>
+        <li><b>__ м²</b><span>зеркала, звук</span></li>
+      </ul>
+    </div>
+
+    <div class="hero-art" aria-hidden="true">
+      <div class="arch"><span class="arch-note">главное фото<br>(PNG без фона)</span><div class="eq" id="eq"></div></div>
+
+      <figure class="inset"><figcaption>фото зала</figcaption></figure>
+
+      <svg class="spark s1" width="40" height="40"><use href="#spark"/></svg>
+      <svg class="spark s2" width="22" height="22"><use href="#spark"/></svg>
+      <svg class="spark s3" width="30" height="30"><use href="#spark"/></svg>
+
+      <svg class="badge" viewBox="0 0 200 200">
+        <defs><path id="circ" d="M100,100 m-78,0 a78,78 0 1,1 156,0 a78,78 0 1,1 -156,0"/></defs>
+        <circle cx="100" cy="100" r="98" fill="var(--bg)" stroke="var(--violet)" stroke-width="1.5"/>
+        <text font-family="Unbounded, sans-serif" font-weight="500" font-size="14" letter-spacing="3.4" fill="var(--violet)">
+          <textPath href="#circ">ЗАПИСЬ ОНЛАЙН • БЕЗ ЗВОНКОВ • </textPath>
+        </text>
+        <use href="#spark" x="76" y="76" width="48" height="48" fill="var(--spark)"/>
+      </svg>
+    </div>
+  </section>
+
+  <!-- MARQUEE -->
+  <div class="marquee" aria-hidden="true">
+    <div class="marquee-track">
+      <span>Хип-хоп</span><span>Контемп</span><span>Хилс</span><span>Стретчинг</span><span>Репетиции</span><span>Съёмки</span><span>Мастер-классы</span><span>Растяжка</span>
+      <span>Хип-хоп</span><span>Контемп</span><span>Хилс</span><span>Стретчинг</span><span>Репетиции</span><span>Съёмки</span><span>Мастер-классы</span><span>Растяжка</span>
+    </div>
+  </div>
+
+  <!-- HOW -->
+  <section class="section">
+    <h2 class="reveal">Четыре шага до зала</h2>
+    <ol class="steps">
+      <li class="reveal"><span class="num">1</span><h3>Выберите время</h3><p>Кликайте по свободным часам в календаре. Цена видна сразу.</p></li>
+      <li class="reveal"><span class="num">2</span><h3>Оставьте данные</h3><p>Имя, телефон и почта. Больше ничего не нужно.</p></li>
+      <li class="reveal"><span class="num">3</span><h3>Переведите деньги</h3><p>Реквизиты покажем на экране. В назначении укажите код брони.</p></li>
+      <li class="reveal"><span class="num">4</span><h3>Получите письмо</h3><p>Администратор подтвердит оплату, и мы пришлём подтверждение.</p></li>
+    </ol>
+  </section>
+
+  <!-- PRICES -->
+  <section class="section" id="prices">
+    <h2 class="reveal">Цены</h2>
+    <p class="section-lead reveal">Платите за каждый час отдельно. Вечером зал популярнее, поэтому дороже.</p>
+    <div class="tariffs">
+      <article class="tariff tariff-day reveal">
+        <p class="tariff-name">День</p>
+        <p class="tariff-price"><span id="priceDay">800</span> ₽<small>/час</small></p>
+        <p class="tariff-time">09:00 – 17:00</p>
+      </article>
+      <article class="tariff tariff-peak reveal">
+        <p class="tariff-name">Вечер</p>
+        <p class="tariff-price"><span id="pricePeak">1 200</span> ₽<small>/час</small></p>
+        <p class="tariff-time">17:00 – 21:00</p>
+      </article>
+    </div>
+    <div class="timeline reveal" aria-hidden="true">
+      <div class="tl-bar"><i class="d" style="flex:8"></i><i class="p" style="flex:4"></i></div>
+      <div class="tl-scale"><span>09</span><span>13</span><span>17</span><span>21</span></div>
+    </div>
+  </section>
+
+  <!-- BOOKING -->
+  <section class="section booking" id="booking" aria-labelledby="bookingTitle">
+    <h2 id="bookingTitle" class="reveal">Выберите время</h2>
+    <p class="section-lead reveal">Один заказ — один день, часы подряд. Чтобы убрать час, нажмите на крайний выбранный.</p>
+
+    <div class="book-grid">
+      <div class="cal-card reveal">
+        <div class="cal-head">
+          <button class="icon-btn" id="prevWeek" type="button" aria-label="Предыдущая неделя">
+            <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <h3 id="weekLabel" aria-live="polite">Неделя</h3>
+          <button class="icon-btn" id="nextWeek" type="button" aria-label="Следующая неделя">
+            <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+        </div>
+
+        <div class="notice" id="calError" role="alert" hidden>
+          <span id="calErrorText">Не удалось загрузить расписание.</span>
+          <button type="button" class="link-btn" id="calRetry">Повторить</button>
+        </div>
+
+        <!-- десктоп: сетка недели -->
+        <div class="week" id="weekGrid" role="group" aria-label="Календарь на неделю"></div>
+
+        <!-- телефон: один день за раз -->
+        <div class="day-view" id="dayView">
+          <div class="daytabs" id="dayTabs" role="tablist" aria-label="Дни недели"></div>
+          <div class="slotlist" id="slotList" role="group" aria-label="Часы выбранного дня"></div>
+        </div>
+
+        <ul class="legend" aria-label="Обозначения">
+          <li><i class="lg lg-day"></i>до 17:00</li>
+          <li><i class="lg lg-peak"></i>17:00–21:00</li>
+          <li><i class="lg lg-busy"></i>занято</li>
+          <li><i class="lg lg-sel"></i>ваш выбор</li>
+        </ul>
+      </div>
+
+      <aside class="summary reveal" aria-label="Ваша бронь">
+        <h3>Ваша бронь</h3>
+        <div id="summaryEmpty" class="empty">
+          <svg class="spark" width="34" height="34" aria-hidden="true"><use href="#spark"/></svg>
+          <p>Нажмите на свободные часы в календаре, и здесь появится сумма.</p>
+        </div>
+
+        <form id="bookForm" class="form" novalidate hidden>
+          <div class="chosen">
+            <p class="chosen-date" id="chosenDate"></p>
+            <p class="chosen-time" id="chosenTime"></p>
+            <ul class="lines" id="chosenLines"></ul>
+            <p class="total"><span>Итого</span><b id="chosenTotal">0 ₽</b></p>
+            <p class="hint sel-note" id="selNote" aria-live="polite"></p>
+          </div>
+
+          <div class="field">
+            <label for="fName">Имя</label>
+            <input id="fName" name="name" type="text" autocomplete="name" required>
+            <p class="err" id="eName" aria-live="polite"></p>
+          </div>
+          <div class="field">
+            <label for="fPhone">Телефон</label>
+            <input id="fPhone" name="phone" type="tel" autocomplete="tel" placeholder="+7" required>
+            <p class="err" id="ePhone" aria-live="polite"></p>
+          </div>
+          <div class="field">
+            <label for="fEmail">Почта</label>
+            <input id="fEmail" name="email" type="email" autocomplete="email" required>
+            <p class="err" id="eEmail" aria-live="polite"></p>
+          </div>
+          <div class="field">
+            <label for="fNote">Комментарий <span class="opt">необязательно</span></label>
+            <textarea id="fNote" name="note" rows="2"></textarea>
+          </div>
+          <label class="check">
+            <input id="fConsent" type="checkbox" required>
+            <span>Согласен на обработку персональных данных</span>
+          </label>
+          <p class="err" id="eConsent" aria-live="polite"></p>
+
+          <!-- ловушка для ботов: человек это поле не видит -->
+          <div class="hp" aria-hidden="true"><label>Сайт<input id="fWebsite" name="website" type="text" tabindex="-1" autocomplete="off"></label></div>
+
+          <p class="err form-err" id="eForm" role="alert"></p>
+          <button class="btn btn-block" id="submitBtn" type="submit">Забронировать</button>
+          <p class="hint">Оплата переводом на следующем шаге. Слот держится 2 часа.</p>
+        </form>
+      </aside>
+    </div>
+  </section>
+
+  <!-- GALLERY -->
+  <section class="section" id="gallery">
+    <h2 class="reveal">Наш зал</h2>
+    <p class="section-lead reveal">Сейчас здесь заглушки. Настоящие фото положите в папку <code>images/</code> и замените блоки на <code>&lt;img&gt;</code>.</p>
+    <div class="bento">
+      <figure class="ph ph-1 reveal"><figcaption>Зал, общий вид</figcaption></figure>
+      <figure class="ph ph-2 reveal"><figcaption>Зеркала</figcaption></figure>
+      <figure class="ph ph-3 reveal"><figcaption>Пол</figcaption></figure>
+      <figure class="ph ph-4 reveal"><figcaption>Раздевалка</figcaption></figure>
+      <figure class="ph ph-5 reveal"><figcaption>Звук и свет</figcaption></figure>
+      <figure class="ph ph-6 reveal"><figcaption>Вход</figcaption></figure>
+    </div>
+  </section>
+
+  <!-- RULES -->
+  <section class="section" id="rules">
+    <h2 class="reveal">Что входит и как у нас принято</h2>
+    <div class="rules">
+      <div class="reveal">
+        <h3>В аренду входит</h3>
+        <ul class="ticks">
+          <li>Колонка с подключением по Bluetooth</li>
+          <li>Зеркала во всю стену</li>
+          <li>Вода и розетки</li>
+          <li>Раздевалка и душ</li>
+        </ul>
+      </div>
+      <div class="reveal">
+        <h3>Правила</h3>
+        <ul class="ticks">
+          <li>Приходите в сменной обуви</li>
+          <li>Бесплатная отмена за 24 часа</li>
+          <li>Оставьте зал чистым</li>
+          <li>Не опаздывайте: время считается с начала часа</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- CONTACTS -->
+  <section class="section contacts" id="contacts">
+    <h2 class="reveal">Как нас найти</h2>
+    <div class="contact-grid">
+      <div class="reveal">
+        <p class="contact-line"><span>Адрес</span>Город, улица, дом</p>
+        <p class="contact-line"><span>Телефон</span><a href="tel:+70000000000">+7 (000) 000-00-00</a></p>
+        <p class="contact-line"><span>Telegram</span><a href="#contacts">@studio</a></p>
+        <p class="contact-line"><span>Почта</span><a href="mailto:hello@example.com">hello@example.com</a></p>
+      </div>
+      <div class="map reveal" role="img" aria-label="Место для карты"><span>карта</span></div>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <span>© Зал «Пульс»</span>
+  <span class="muted">Аренда танцевального зала по часам</span>
+</footer>
+
+<!-- ОКНО ОПЛАТЫ -->
+<dialog id="payDialog" aria-labelledby="payTitle">
+  <div class="pay">
+    <p class="chip" id="payChip">Ожидает оплаты</p>
+    <h2 id="payTitle">Бронь создана</h2>
+    <p class="pay-when" id="payWhen"></p>
+    <p class="pay-sum">Переведите <b id="paySum"></b> в течение <b>2 часов</b>, иначе слот освободится.</p>
+    <p class="timer" id="payTimer" aria-live="off">02:00:00</p>
+
+    <dl class="req">
+      <div><dt>Получатель</dt><dd><span id="reqRecipient"></span><button type="button" class="copy" data-copy-from="reqRecipient">Копировать</button></dd></div>
+      <div><dt>Счёт</dt><dd><span id="reqAccount"></span><button type="button" class="copy" data-copy-from="reqAccount">Копировать</button></dd></div>
+      <div><dt>Банк, БИК</dt><dd><span id="reqBank"></span><button type="button" class="copy" data-copy-from="reqBank">Копировать</button></dd></div>
+      <div><dt>Сумма</dt><dd id="reqSum"></dd></div>
+      <div><dt>Назначение</dt><dd id="reqPurpose"></dd></div>
+    </dl>
+    <p class="hint" id="payMail">Мы пришлём письмо, когда администратор подтвердит поступление.</p>
+
+    <p class="err" id="payError" role="alert"></p>
+    <div class="pay-actions">
+      <button type="button" class="btn btn-ghost" id="payCancel">Отменить бронь</button>
+      <button type="button" class="btn" id="payClose">Понятно</button>
+    </div>
+    <p class="demo">Запомните код брони: по нему администратор найдёт ваш платёж.</p>
+  </div>
+</dialog>
+
+<script src="js/app.js"></script>
+</body>
+</html>

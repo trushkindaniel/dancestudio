@@ -1,0 +1,17 @@
+{
+  "name": "dance-studio-booking",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Автозапись в танцевальную студию: календарь слотов, оплата через ЮKassa или переводом, брони в Google Календаре",
+  "main": "server/index.js",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js",
+    "test": "node scripts/test.js",
+    "check:mail": "node scripts/check-mail.js"
+  },
+  "dependencies": {
+    "nodemailer": "^6.9.16"
+  }
+}

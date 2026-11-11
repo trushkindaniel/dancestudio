@@ -1,0 +1,579 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Запись в танцевальную студию — схема и вайрфрейм</title>
+<style>
+  :root {
+    --bg: #f6f5f2; --surface: #ffffff; --sunken: #ecebe6; --line: #cfcdc5; --line-strong: #9c9a92;
+    --text: #1d1d1b; --muted: #66645e;
+    --accent: #c2410c; --accent-soft: #fde9dc;
+    --day: #dcefe3; --day-line: #8cc3a1;
+    --peak: #fbe3c8; --peak-line: #e0a468;
+    --ok: #2f7d4f; --warn: #b45309; --bad: #a33;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #151514; --surface: #1f1f1d; --sunken: #2a2a27; --line: #3d3d39; --line-strong: #6d6c66;
+      --text: #ecebe6; --muted: #a09e96;
+      --accent: #fb923c; --accent-soft: #3a2616;
+      --day: #1e3a2a; --day-line: #3f7a58;
+      --peak: #4a3318; --peak-line: #b07a3a;
+      --ok: #6fcf97; --warn: #f0b35a; --bad: #f08a8a;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 32px 16px 80px; }
+  h1 { font-size: 28px; line-height: 1.2; margin: 0 0 8px; }
+  h2 { font-size: 22px; margin: 56px 0 6px; padding-top: 8px; border-top: 2px solid var(--text); }
+  h3 { font-size: 16px; margin: 28px 0 8px; }
+  p { margin: 0 0 12px; }
+  .lead { color: var(--muted); max-width: 70ch; }
+  .muted { color: var(--muted); }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+  .card h3 { margin-top: 0; }
+  ul, ol { margin: 0 0 12px; padding-left: 20px; }
+  li { margin-bottom: 4px; }
+  code { background: var(--sunken); padding: 1px 5px; border-radius: 4px; font-size: 13px; }
+  table { border-collapse: collapse; width: 100%; background: var(--surface); }
+  th, td { border: 1px solid var(--line); padding: 8px 12px; text-align: left; font-size: 15px; }
+  th { background: var(--sunken); }
+  .tag { display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 99px; border: 1px solid var(--line-strong); color: var(--muted); }
+  nav.toc { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0 0; }
+  nav.toc a { color: var(--text); font-size: 14px; border: 1px solid var(--line-strong); border-radius: 99px; padding: 3px 12px; text-decoration: none; }
+  nav.toc a:hover { background: var(--sunken); }
+
+  /* SVG */
+  svg { width: 100%; height: auto; display: block; }
+  .diagram { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 8px; }
+  svg .box { fill: var(--surface); stroke: var(--line-strong); stroke-width: 1.5; }
+  svg .box-a { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1.5; }
+  svg .box-s { fill: var(--sunken); stroke: var(--line-strong); stroke-width: 1.5; }
+  svg .t { fill: var(--text); font: 600 14px system-ui, sans-serif; }
+  svg .m { fill: var(--muted); font: 12.5px system-ui, sans-serif; }
+  svg .ln { stroke: var(--line-strong); stroke-width: 1.6; fill: none; }
+  svg .ln-d { stroke: var(--line-strong); stroke-width: 1.6; fill: none; stroke-dasharray: 5 5; }
+  svg .ln-a { stroke: var(--accent); stroke-width: 2; fill: none; }
+  svg .ah { fill: var(--line-strong); }
+  svg .aha { fill: var(--accent); }
+
+  /* wireframe */
+  .frame { background: var(--surface); border: 2px solid var(--line-strong); border-radius: 10px; overflow: hidden; }
+  .frame-bar { display: flex; gap: 6px; align-items: center; padding: 8px 12px; background: var(--sunken); border-bottom: 1px solid var(--line); font-size: 12px; color: var(--muted); }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--line-strong); }
+  .url { margin-left: 8px; background: var(--surface); border: 1px solid var(--line); border-radius: 99px; padding: 1px 12px; }
+  .sec { padding: 20px 24px; border-bottom: 1px dashed var(--line-strong); position: relative; }
+  .sec:last-child { border-bottom: 0; }
+  .sec-label { position: absolute; top: 6px; right: 8px; font-size: 11px; background: var(--accent); color: #fff; padding: 0 7px; border-radius: 4px; }
+  .nav { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .logo { font-weight: 700; letter-spacing: .5px; }
+  .btn { display: inline-block; background: var(--text); color: var(--bg); border-radius: 6px; padding: 8px 16px; font-size: 14px; font-weight: 600; text-align: center; }
+  .btn.ghost { background: transparent; color: var(--text); border: 1.5px solid var(--text); }
+  .btn.block { display: block; width: 100%; }
+  .btn.off { background: var(--sunken); color: var(--muted); }
+  .hero { display: grid; grid-template-columns: 1.1fr 1fr; gap: 24px; align-items: center; }
+  .hero .mock-title { font-size: 26px; font-weight: 700; line-height: 1.2; margin: 0 0 8px; }
+  .ph { background:
+      linear-gradient(to top right, transparent calc(50% - 1px), var(--line-strong) 50%, transparent calc(50% + 1px)),
+      linear-gradient(to bottom right, transparent calc(50% - 1px), var(--line-strong) 50%, transparent calc(50% + 1px)),
+      var(--sunken);
+    border: 1px solid var(--line-strong); border-radius: 8px; display: flex; align-items: flex-end; padding: 6px 8px; font-size: 12px; color: var(--muted); min-height: 90px; }
+  .ph span { background: var(--surface); padding: 0 6px; border-radius: 3px; }
+  .prices { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
+  .price { border: 1.5px solid; border-radius: 8px; padding: 10px 14px; }
+  .price.day { background: var(--day); border-color: var(--day-line); }
+  .price.peak { background: var(--peak); border-color: var(--peak-line); }
+  .price b { font-size: 20px; }
+  .book { display: grid; grid-template-columns: 1fr 300px; gap: 20px; align-items: start; }
+  .cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; font-weight: 600; }
+  .cal-head .arr { border: 1px solid var(--line-strong); border-radius: 6px; padding: 0 10px; }
+  .cal { display: grid; grid-template-columns: 44px repeat(7, 1fr); gap: 3px; font-size: 12px; }
+  .cal .h { text-align: center; font-weight: 600; padding: 2px 0 4px; line-height: 1.2; }
+  .cal .h small { display: block; font-weight: 400; color: var(--muted); }
+  .cal .time { color: var(--muted); text-align: right; padding-right: 4px; align-self: center; }
+  .cell { height: 28px; border-radius: 4px; border: 1px solid; display: flex; align-items: center; justify-content: center; font-size: 11px; }
+  .cell.d { background: var(--day); border-color: var(--day-line); }
+  .cell.p { background: var(--peak); border-color: var(--peak-line); }
+  .cell.x { background: repeating-linear-gradient(45deg, var(--sunken), var(--sunken) 4px, var(--surface) 4px, var(--surface) 8px); border-color: var(--line); color: var(--muted); }
+  .cell.s { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; }
+  .legend { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 10px; font-size: 12px; color: var(--muted); }
+  .legend i { display: inline-block; width: 14px; height: 14px; border-radius: 3px; border: 1px solid; vertical-align: -3px; margin-right: 5px; }
+  .panel { border: 1.5px solid var(--text); border-radius: 10px; padding: 14px; }
+  .panel .panel-title { margin: 0 0 8px; font-size: 15px; font-weight: 700; }
+  .field { border: 1px solid var(--line-strong); border-radius: 6px; padding: 7px 10px; color: var(--muted); font-size: 13px; margin-bottom: 8px; background: var(--surface); }
+  .chk { font-size: 12px; color: var(--muted); margin: 4px 0 10px; }
+  .chk::before { content: "☐ "; }
+  .sum { display: flex; justify-content: space-between; border-top: 1px dashed var(--line-strong); padding-top: 8px; margin: 8px 0 12px; font-weight: 700; }
+  .gal { display: grid; grid-template-columns: repeat(4, 1fr); grid-template-rows: 110px 110px; gap: 8px; }
+  .gal .ph:first-child { grid-column: span 2; grid-row: span 2; }
+  .three { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .note { font-size: 13px; color: var(--muted); margin-top: 8px; }
+  .anno { display: inline-block; background: var(--accent); color: #fff; font-size: 11px; font-weight: 700; width: 18px; height: 18px; line-height: 18px; text-align: center; border-radius: 50%; margin-right: 4px; }
+  .step2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .req { border: 1px solid var(--line-strong); border-radius: 8px; padding: 4px 12px; font-size: 13px; }
+  .req div { display: flex; justify-content: space-between; gap: 8px; padding: 6px 0; border-bottom: 1px dashed var(--line); }
+  .req div:last-child { border: 0; }
+  .req em { font-style: normal; color: var(--muted); }
+  .chip { display: inline-block; padding: 1px 10px; border-radius: 99px; font-size: 12px; font-weight: 600; background: var(--peak); border: 1px solid var(--peak-line); }
+  .chip.ok { background: var(--day); border-color: var(--day-line); }
+
+  /* mobile mock */
+  .phones { display: flex; flex-wrap: wrap; gap: 24px; justify-content: center; }
+  .phone { width: 300px; background: var(--surface); border: 2px solid var(--line-strong); border-radius: 28px; padding: 14px 12px 12px; position: relative; }
+  .phone .scr { height: 560px; overflow: hidden; display: flex; flex-direction: column; gap: 10px; font-size: 13px; }
+  .days { display: flex; gap: 6px; overflow: hidden; }
+  .dchip { flex: 0 0 auto; border: 1px solid var(--line-strong); border-radius: 8px; padding: 4px 8px; text-align: center; font-size: 12px; line-height: 1.2; }
+  .dchip.on { background: var(--text); color: var(--bg); }
+  .slots { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .slot { border: 1px solid; border-radius: 6px; padding: 6px 8px; font-size: 12px; display: flex; justify-content: space-between; }
+  .slot.d { background: var(--day); border-color: var(--day-line); }
+  .slot.p { background: var(--peak); border-color: var(--peak-line); }
+  .slot.x { background: var(--sunken); border-color: var(--line); color: var(--muted); text-decoration: line-through; }
+  .slot.s { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; }
+  .sticky { margin-top: auto; border: 1.5px solid var(--text); border-radius: 10px; padding: 10px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+
+  @media (max-width: 860px) {
+    .grid2, .hero, .book, .step2, .three { grid-template-columns: 1fr; }
+    .gal { grid-template-columns: 1fr 1fr; grid-template-rows: auto; }
+    .gal .ph { min-height: 90px; }
+    .gal .ph:first-child { grid-column: span 2; grid-row: auto; min-height: 140px; }
+    .sec { padding: 16px 12px; }
+    .cal { font-size: 10px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>Автозапись в танцевальную студию</h1>
+  <p class="lead">Схема проекта и вайрфрейм одностраничного сайта: календарь с таймслотами, разные цены днём и вечером,
+    оплата банковским переводом, подтверждение администратором через Google Календарь, фотографии студии.</p>
+  <p class="note">Всё, что отмечено как «допущение» (часы работы, цены, срок удержания брони), я выбрал сам, чтобы схема была конкретной. Это легко меняется, список вопросов в конце.</p>
+  <nav class="toc">
+    <a href="#scheme">1. Схема системы</a>
+    <a href="#flow">2. Путь брони</a>
+    <a href="#wire">3. Вайрфрейм (десктоп)</a>
+    <a href="#pay">4. Экран после брони</a>
+    <a href="#mobile">5. Мобильная версия</a>
+    <a href="#prices">6. Тарифы и правила</a>
+    <a href="#stack">7. Стек, этапы, вопросы</a>
+  </nav>
+
+  <!-- 1. SCHEME -->
+  <h2 id="scheme">1. Схема системы</h2>
+  <p class="lead">Базы данных нет. Google Календарь студии одновременно хранит брони и показывает администратору, кто и когда занял зал. Сайт спрашивает у календаря, какие слоты заняты, и создаёт в нём события.</p>
+  <div class="diagram">
+    <svg viewBox="0 0 900 400" role="img" aria-label="Схема: клиент, сайт, backend, Google Календарь, администратор, банк, уведомления">
+      <defs>
+        <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker>
+        <marker id="aha" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="aha"/></marker>
+      </defs>
+
+      <rect class="box-a" x="20" y="130" width="210" height="90" rx="10"/>
+      <text class="t" x="125" y="162" text-anchor="middle">Клиент</text>
+      <text class="m" x="125" y="182" text-anchor="middle">Одностраничный сайт</text>
+      <text class="m" x="125" y="200" text-anchor="middle">календарь · форма · фото</text>
+
+      <rect class="box" x="345" y="130" width="210" height="90" rx="10"/>
+      <text class="t" x="450" y="162" text-anchor="middle">Backend (API)</text>
+      <text class="m" x="450" y="182" text-anchor="middle">GET /slots · POST /book</text>
+      <text class="m" x="450" y="200" text-anchor="middle">cron: проверка раз в 5 минут</text>
+
+      <rect class="box" x="670" y="30" width="210" height="100" rx="10"/>
+      <text class="t" x="775" y="62" text-anchor="middle">Google Календарь</text>
+      <text class="m" x="775" y="82" text-anchor="middle">«Студия — брони»</text>
+      <text class="m" x="775" y="100" text-anchor="middle">событие = бронь + её статус</text>
+
+      <rect class="box-a" x="670" y="250" width="210" height="80" rx="10"/>
+      <text class="t" x="775" y="282" text-anchor="middle">Администратор</text>
+      <text class="m" x="775" y="302" text-anchor="middle">Google Календарь на телефоне</text>
+
+      <rect class="box-s" x="20" y="270" width="210" height="60" rx="10"/>
+      <text class="t" x="125" y="296" text-anchor="middle">Банк клиента</text>
+      <text class="m" x="125" y="314" text-anchor="middle">перевод по реквизитам</text>
+
+      <rect class="box" x="345" y="270" width="210" height="60" rx="10"/>
+      <text class="t" x="450" y="296" text-anchor="middle">Письмо / Telegram</text>
+      <text class="m" x="450" y="314" text-anchor="middle">клиенту и администратору</text>
+
+      <!-- client <-> backend -->
+      <path class="ln" d="M232,165 H343" marker-end="url(#ah)"/>
+      <path class="ln" d="M343,188 H232" marker-end="url(#ah)"/>
+      <text class="m" x="288" y="156" text-anchor="middle">① слоты</text>
+      <text class="m" x="288" y="206" text-anchor="middle">② бронь</text>
+
+      <!-- backend -> calendar -->
+      <path class="ln" d="M520,128 L670,92" marker-end="url(#ah)"/>
+      <text class="m" x="600" y="96" text-anchor="middle" transform="rotate(-14 600 96)">freebusy · insert</text>
+      <path class="ln" d="M670,112 L555,150" marker-start="url(#ah)"/>
+      <text class="m" x="632" y="140" text-anchor="middle" transform="rotate(-18 632 140)">list (статусы)</text>
+
+      <!-- admin -> calendar -->
+      <path class="ln-a" d="M775,248 V132" marker-end="url(#aha)"/>
+      <text class="m" x="785" y="195">④ красит событие</text>
+      <text class="m" x="785" y="212">в зелёный = «оплачено»</text>
+
+      <!-- backend -> notify -->
+      <path class="ln" d="M450,222 V268" marker-end="url(#ah)"/>
+      <text class="m" x="460" y="250">⑤ письмо клиенту</text>
+
+      <!-- client -> bank -->
+      <path class="ln-d" d="M125,222 V268" marker-end="url(#ah)"/>
+      <text class="m" x="135" y="250">③ оплата вне сайта</text>
+
+      <!-- bank -> admin -->
+      <path class="ln-d" d="M125,332 V372 H775 V332" marker-end="url(#ah)"/>
+      <text class="m" x="450" y="364" text-anchor="middle">админ видит поступление в своём банке и сверяет сумму и код брони</text>
+    </svg>
+  </div>
+  <p class="note">Сплошная линия: автоматика. Пунктир: действия людей вне сайта. Акцентная линия: единственное ручное действие администратора.</p>
+
+  <div class="three" style="margin-top:16px">
+    <div class="card"><h3>Сайт</h3><p>Один HTML со скриптом. Рисует календарь, считает цену, шлёт бронь на backend. Секретов в нём нет.</p></div>
+    <div class="card"><h3>Backend</h3><p>Маленькая серверная функция. Единственная, кто знает ключ Google. Перед созданием брони повторно проверяет, что слот ещё свободен.</p></div>
+    <div class="card"><h3>Google Календарь</h3><p>Хранит брони. Данные клиента лежат в описании и скрытых полях события. Админ работает прямо в приложении календаря.</p></div>
+  </div>
+
+  <!-- 2. FLOW -->
+  <h2 id="flow">2. Путь брони</h2>
+  <p class="lead">У брони четыре состояния. Администратору нужно только одно действие: перекрасить событие после того, как деньги пришли.</p>
+  <div class="diagram">
+    <svg viewBox="0 0 900 250" role="img" aria-label="Состояния брони">
+      <defs>
+        <marker id="b1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker>
+      </defs>
+      <rect class="box-s" x="10" y="70" width="150" height="70" rx="10"/>
+      <text class="t" x="85" y="100" text-anchor="middle">Выбрано</text>
+      <text class="m" x="85" y="120" text-anchor="middle">клиент на сайте</text>
+
+      <rect class="box-a" x="250" y="70" width="190" height="70" rx="10"/>
+      <text class="t" x="345" y="96" text-anchor="middle">Ожидает оплаты</text>
+      <text class="m" x="345" y="115" text-anchor="middle">слот удержан 2 часа</text>
+      <text class="m" x="345" y="131" text-anchor="middle">событие жёлтое ⏳</text>
+
+      <rect class="box" x="560" y="20" width="190" height="70" rx="10" style="stroke:var(--ok)"/>
+      <text class="t" x="655" y="46" text-anchor="middle">Оплачено ✅</text>
+      <text class="m" x="655" y="65" text-anchor="middle">событие зелёное</text>
+      <text class="m" x="655" y="81" text-anchor="middle">клиенту ушло письмо</text>
+
+      <rect class="box" x="560" y="130" width="190" height="70" rx="10" style="stroke:var(--bad)"/>
+      <text class="t" x="655" y="156" text-anchor="middle">Отменено</text>
+      <text class="m" x="655" y="175" text-anchor="middle">событие удалено</text>
+      <text class="m" x="655" y="191" text-anchor="middle">слот снова свободен</text>
+
+      <path class="ln" d="M162,105 H248" marker-end="url(#b1)"/>
+      <text class="m" x="205" y="96" text-anchor="middle">«Забронировать»</text>
+      <path class="ln" d="M442,90 L558,60" marker-end="url(#b1)"/>
+      <text class="m" x="500" y="62" text-anchor="middle" transform="rotate(-14 500 62)">админ перекрасил</text>
+      <path class="ln" d="M442,122 L558,162" marker-end="url(#b1)"/>
+      <text class="m" x="496" y="164" text-anchor="middle" transform="rotate(16 496 164)">2 часа без оплаты</text>
+      <path class="ln-d" d="M345,142 V225 H655 V202" marker-end="url(#b1)"/>
+      <text class="m" x="500" y="240" text-anchor="middle">или клиент сам отменил по ссылке из письма</text>
+    </svg>
+  </div>
+
+  <h3>Пошагово</h3>
+  <div class="grid2">
+    <div class="card">
+      <h3>Клиент</h3>
+      <ol>
+        <li>Открывает сайт, листает недели, видит свободные слоты и цену каждого.</li>
+        <li>Кликает по часам (можно несколько подряд). Справа считается сумма.</li>
+        <li>Вводит имя, телефон, почту, ставит согласие на обработку данных.</li>
+        <li>Нажимает «Забронировать». Видит экран с реквизитами, суммой и кодом брони.</li>
+        <li>Переводит деньги из своего банка, в назначении указывает код брони.</li>
+        <li>Получает письмо «Оплата подтверждена» или, если не успел, «Бронь снята».</li>
+      </ol>
+    </div>
+    <div class="card">
+      <h3>Администратор и система</h3>
+      <ol>
+        <li>Backend создаёт в календаре жёлтое событие «⏳ A7F3 · Анна · 18:00–20:00 · 2 400 ₽» и отправляет админу уведомление.</li>
+        <li>Админ видит поступление в своём банке, сверяет сумму и код.</li>
+        <li>Открывает событие в Google Календаре и ставит цвет «Базилик» (зелёный). Больше ничего делать не нужно.</li>
+        <li>Раз в 5 минут backend читает календарь. Увидел зелёный: помечает бронь оплаченной, шлёт письмо клиенту.</li>
+        <li>Жёлтые события старше 2 часов backend удаляет сам, слот освобождается.</li>
+      </ol>
+    </div>
+  </div>
+
+  <!-- 3. WIREFRAME DESKTOP -->
+  <h2 id="wire">3. Вайрфрейм: главная страница (десктоп)</h2>
+  <p class="lead">Всё на одной странице, сверху вниз: шапка, первый экран, цены, запись, фото, правила, контакты. Кнопка «Записаться» везде ведёт к календарю.</p>
+
+  <div class="frame">
+    <div class="frame-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="url">tetto.itb-dev.ru</span></div>
+
+    <div class="sec">
+      <span class="sec-label">шапка</span>
+      <div class="nav">
+        <span class="logo">LOGO · Название студии</span>
+        <span class="muted" style="font-size:14px">Фото &nbsp;·&nbsp; Цены &nbsp;·&nbsp; Правила &nbsp;·&nbsp; Контакты &nbsp;·&nbsp; +7 (___) ___-__-__</span>
+        <span class="btn">Записаться</span>
+      </div>
+    </div>
+
+    <div class="sec">
+      <span class="sec-label">первый экран</span>
+      <div class="hero">
+        <div>
+          <p class="mock-title">Зал для танцев и репетиций в аренду по часам</p>
+          <p class="muted">__ м², зеркала, зелёный пол, звук, душ. Адрес, метро. Выберите время и оплатите переводом, без звонков.</p>
+          <span class="btn">Выбрать время</span> &nbsp; <span class="btn ghost">Посмотреть зал</span>
+        </div>
+        <div class="ph" style="min-height:190px"><span>главное фото зала</span></div>
+      </div>
+      <div class="prices" id="priceStrip">
+        <div class="price day"><b>до 17:00 — 800 ₽/час</b><br><span class="muted">будни и выходные, днём</span></div>
+        <div class="price peak"><b>17:00–21:00 — 1 200 ₽/час</b><br><span class="muted">вечерний прайм</span></div>
+      </div>
+    </div>
+
+    <div class="sec" id="bookSec">
+      <span class="sec-label">запись (главный блок)</span>
+      <div class="book">
+        <div>
+          <div class="cal-head"><span class="arr">‹</span><span>9–15 ноября 2026</span><span class="arr">›</span></div>
+          <div class="cal" id="cal"></div>
+          <div class="legend">
+            <span><i style="background:var(--day);border-color:var(--day-line)"></i>свободно, до 17:00</span>
+            <span><i style="background:var(--peak);border-color:var(--peak-line)"></i>свободно, 17:00–21:00</span>
+            <span><i style="background:var(--sunken);border-color:var(--line)"></i>занято</span>
+            <span><i style="background:var(--accent);border-color:var(--accent)"></i>ваш выбор</span>
+          </div>
+          <p class="note"><span class="anno">1</span>Клик по свободной ячейке выбирает час, клик по соседней добавляет ещё один. Занятые не нажимаются. Прошедшее время серое.</p>
+        </div>
+        <div class="panel">
+          <p class="panel-title"><span class="anno">2</span>Ваша бронь</p>
+          <div style="font-size:14px;margin-bottom:6px"><b>Пт, 13 ноября</b><br>18:00–20:00 · 2 часа <span class="muted">(убрать ✕)</span></div>
+          <div class="field">Имя</div>
+          <div class="field">Телефон</div>
+          <div class="field">Почта</div>
+          <div class="field">Комментарий (необязательно)</div>
+          <div class="chk">Согласен на обработку персональных данных</div>
+          <div class="sum"><span>Итого</span><span>2 400 ₽</span></div>
+          <span class="btn block">Забронировать</span>
+          <p class="note" style="margin:8px 0 0">Оплата переводом на следующем шаге. Слот держится 2 часа.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="sec">
+      <span class="sec-label">фото студии</span>
+      <div class="gal">
+        <div class="ph"><span>зал, общий вид</span></div>
+        <div class="ph"><span>зеркала</span></div>
+        <div class="ph"><span>пол</span></div>
+        <div class="ph"><span>раздевалка</span></div>
+        <div class="ph"><span>вход</span></div>
+        <div class="ph"><span>душ</span></div>
+      </div>
+      <p class="note">Клик по фото открывает полноэкранный просмотр со стрелками. Фото сжимаются заранее (WebP, до 200 КБ), чтобы страница грузилась быстро.</p>
+    </div>
+
+    <div class="sec">
+      <span class="sec-label">правила и вопросы</span>
+      <div class="three">
+        <div><b>Что в аренду входит</b><br><span class="muted">звук, зеркала, вода, розетки</span></div>
+        <div><b>Правила</b><br><span class="muted">сменная обувь, отмена за 24 часа</span></div>
+        <div><b>Как оплатить</b><br><span class="muted">перевод по реквизитам после брони</span></div>
+      </div>
+    </div>
+
+    <div class="sec">
+      <span class="sec-label">контакты</span>
+      <div class="hero">
+        <div><b>Адрес</b><br>Город, улица, дом<br><br><b>Связь</b><br>Телефон · Telegram · WhatsApp</div>
+        <div class="ph"><span>карта</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. PAYMENT SCREEN -->
+  <h2 id="pay">4. Экран после нажатия «Забронировать»</h2>
+  <p class="lead">Открывается поверх страницы. Здесь клиент узнаёт, сколько и куда перевести. Страница не закрывается сама, а таймер показывает, сколько держится слот.</p>
+  <div class="frame">
+    <div class="frame-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="url">tetto.itb-dev.ru · окно оплаты</span></div>
+    <div class="sec">
+      <div class="step2">
+        <div>
+          <p><span class="chip">⏳ Ожидает оплаты</span></p>
+          <p style="font-size:22px;font-weight:700;margin:0 0 8px">Бронь A7F3 создана</p>
+          <p><b>Пт, 13 ноября, 18:00–20:00</b><br>Зал, адрес</p>
+          <p>Переведите <b>2 400 ₽</b> до <b>14:35</b>, иначе слот освободится.</p>
+          <div class="panel" style="text-align:center">Осталось <b style="font-size:22px">1:58:20</b></div>
+        </div>
+        <div>
+          <div class="req">
+            <div><em>Получатель</em><span>ИП / ФИО ______ <u>копировать</u></span></div>
+            <div><em>Счёт</em><span>40___________ <u>копировать</u></span></div>
+            <div><em>Банк / БИК</em><span>______ / ________ <u>копировать</u></span></div>
+            <div><em>Сумма</em><span>2 400 ₽ <u>копировать</u></span></div>
+            <div><em>Назначение</em><span>Аренда зала, бронь A7F3 <u>копировать</u></span></div>
+          </div>
+          <p class="note"><span class="anno">3</span>Код брони в назначении платежа нужен администратору, чтобы найти нужное событие.</p>
+          <p style="margin-top:12px">Мы пришлём письмо на <b>anna@mail.ru</b>, когда администратор подтвердит поступление.</p>
+          <span class="btn ghost">Отменить бронь</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. MOBILE -->
+  <h2 id="mobile">5. Мобильная версия</h2>
+  <p class="lead">Сетка из семи колонок на телефоне нечитаема. Поэтому на узком экране календарь превращается в выбор дня и список часов. Нижняя панель с суммой всегда на виду.</p>
+  <div class="phones">
+    <div class="phone">
+      <div class="scr">
+        <div class="nav"><span class="logo">LOGO</span><span class="btn" style="padding:5px 10px;font-size:12px">Записаться</span></div>
+        <div class="ph" style="min-height:130px"><span>фото зала</span></div>
+        <b style="font-size:17px;line-height:1.2">Зал в аренду по часам</b>
+        <div class="prices" style="margin:0;gap:6px">
+          <div class="price day" style="padding:6px 8px;font-size:12px"><b style="font-size:14px">до 17:00</b><br>800 ₽/ч</div>
+          <div class="price peak" style="padding:6px 8px;font-size:12px"><b style="font-size:14px">17:00–21:00</b><br>1 200 ₽/ч</div>
+        </div>
+        <span class="btn block">Выбрать время</span>
+        <div class="gal" style="grid-template-columns:1fr 1fr;grid-template-rows:60px;gap:6px"><div class="ph" style="grid-column:auto;grid-row:auto;min-height:0"></div><div class="ph" style="min-height:0"></div></div>
+      </div>
+    </div>
+    <div class="phone">
+      <div class="scr">
+        <b>Выберите день</b>
+        <div class="days">
+          <div class="dchip">Пн<br>9</div><div class="dchip">Вт<br>10</div><div class="dchip">Ср<br>11</div>
+          <div class="dchip">Чт<br>12</div><div class="dchip on">Пт<br>13</div><div class="dchip">Сб<br>14</div><div class="dchip">Вс<br>15</div>
+        </div>
+        <div class="muted">Пятница, 13 ноября</div>
+        <div class="slots" id="slots"></div>
+        <div class="legend" style="margin:0"><span><i style="background:var(--day);border-color:var(--day-line)"></i>800 ₽</span><span><i style="background:var(--peak);border-color:var(--peak-line)"></i>1 200 ₽</span></div>
+        <div class="sticky"><div><b>2 400 ₽</b><br><span class="muted" style="font-size:11px">18:00–20:00 · 2 ч</span></div><span class="btn">Далее</span></div>
+      </div>
+    </div>
+    <div class="phone">
+      <div class="scr">
+        <b>Ваши данные</b>
+        <div class="muted" style="font-size:12px">Пт 13 ноября · 18:00–20:00 · 2 400 ₽</div>
+        <div class="field">Имя</div>
+        <div class="field">Телефон</div>
+        <div class="field">Почта</div>
+        <div class="field">Комментарий</div>
+        <div class="chk">Согласен на обработку данных</div>
+        <div class="sticky"><div><b>2 400 ₽</b></div><span class="btn">Забронировать</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 6. PRICES -->
+  <h2 id="prices">6. Тарифы и правила</h2>
+  <p class="lead">Цена считается за каждый час отдельно. Если бронь пересекает границу 17:00, первая часть идёт по дневной цене, вторая по вечерней.</p>
+  <table>
+    <tr><th>Время начала часа</th><th>Тариф</th><th>Цена (допущение)</th></tr>
+    <tr><td>09:00–16:00</td><td>День</td><td>800 ₽/час</td></tr>
+    <tr><td>17:00–20:00</td><td>Вечер</td><td>1 200 ₽/час</td></tr>
+  </table>
+  <p class="note">Пример: 16:00–19:00 = 800 + 1 200 + 1 200 = 3 200 ₽.</p>
+
+  <div class="grid2" style="margin-top:16px">
+    <div class="card">
+      <h3>Правила, которые я заложил</h3>
+      <ul>
+        <li>Слот равен одному часу, минимальная бронь 1 час.</li>
+        <li>Часы работы 09:00–21:00 (последний слот начинается в 20:00).</li>
+        <li>Запись открыта на 60 дней вперёд. Прошедшие часы и ближайший час закрыты.</li>
+        <li>Слот удерживается 2 часа, потом освобождается сам.</li>
+        <li>Одна бронь в одном заказе только на один день и подряд идущие часы.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Защита от сбоев</h3>
+      <ul>
+        <li>Перед созданием события backend повторно проверяет, что слот свободен. Если двое нажали одновременно, второй увидит «слот уже занят».</li>
+        <li>Цену считает backend, а не страница. Подменить её в браузере нельзя.</li>
+        <li>Скрытое поле-ловушка и лимит запросов с одного адреса против спама.</li>
+        <li>Ключ Google хранится только на backend, в браузер не попадает.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- 7. STACK -->
+  <h2 id="stack">7. Стек, этапы и вопросы</h2>
+  <div class="grid2">
+    <div class="card">
+      <h3>Что использовать</h3>
+      <ul>
+        <li><b>Сайт:</b> чистые HTML, CSS и JavaScript, без фреймворков. Один файл плюс папка с фото.</li>
+        <li><b>Backend:</b> Node.js-функция или небольшой PHP-скрипт, смотря что поддерживает хостинг.</li>
+        <li><b>Календарь:</b> Google Calendar API через сервисный аккаунт. Админ даёт ему доступ к календарю «Студия — брони».</li>
+        <li><b>Письма:</b> любой SMTP или сервис отправки.</li>
+        <li><b>Уведомление админу о новой брони:</b> письмо или Telegram-бот (бот проще, чем кажется).</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Этапы</h3>
+      <ol>
+        <li><b>Статика:</b> вёрстка по этому вайрфрейму, фото, календарь на тестовых данных.</li>
+        <li><b>Календарь:</b> backend читает занятые слоты из Google Календаря.</li>
+        <li><b>Бронь:</b> создание события, экран с реквизитами, удержание на 2 часа.</li>
+        <li><b>Подтверждение:</b> чтение цвета события, письма, автоотмена.</li>
+        <li><b>Запуск:</b> реквизиты, домен, тестовая бронь вместе с админом.</li>
+      </ol>
+    </div>
+  </div>
+
+  <h3>Вопросы, от которых зависят детали</h3>
+  <div class="card">
+    <ol>
+      <li>Часы работы и реальные цены. Будни и выходные стоят одинаково?</li>
+      <li>Сколько держать слот без оплаты: 2 часа подходит, или нужно дольше (например, до конца дня)?</li>
+      <li>Получатель платежа: ИП, самозанятый или физлицо? От этого зависят реквизиты и текст на экране оплаты.</li>
+      <li>Нужны ли скидки на пакеты часов и постоянных арендаторов?</li>
+      <li>Где будет жить сайт: этот домен работает на Битриксе, поддерживает ли хостинг Node.js, или писать backend на PHP?</li>
+      <li>Админу уведомления о новых бронях удобнее на почту или в Telegram?</li>
+    </ol>
+  </div>
+
+</div>
+
+<script>
+  // Calendar wireframe: 7 days x 12 hours, sample data only.
+  (function () {
+    var days = [["Пн", 9], ["Вт", 10], ["Ср", 11], ["Чт", 12], ["Пт", 13], ["Сб", 14], ["Вс", 15]];
+    var busy = { 0: [10, 11, 18], 1: [9, 19, 20], 2: [14, 15, 16], 3: [18, 19], 4: [10, 11], 5: [12, 13, 14, 17, 18, 19], 6: [] };
+    var selected = { 4: [18, 19] };
+    var cal = document.getElementById("cal");
+    if (!cal) return;
+    var html = '<div></div>';
+    days.forEach(function (d) { html += '<div class="h">' + d[0] + '<small>' + d[1] + '</small></div>'; });
+    for (var h = 9; h <= 20; h++) {
+      html += '<div class="time">' + (h < 10 ? "0" : "") + h + ':00</div>';
+      for (var i = 0; i < 7; i++) {
+        var cls = h < 17 ? "d" : "p", label = h < 17 ? "800" : "1200";
+        if ((busy[i] || []).indexOf(h) > -1) { cls = "x"; label = ""; }
+        if ((selected[i] || []).indexOf(h) > -1) { cls = "s"; label = "✓"; }
+        html += '<div class="cell ' + cls + '">' + label + '</div>';
+      }
+    }
+    cal.innerHTML = html;
+
+    var slots = document.getElementById("slots");
+    if (slots) {
+      var sh = "";
+      var friBusy = busy[4], friSel = selected[4];
+      for (var t = 9; t <= 20; t++) {
+        var c = t < 17 ? "d" : "p";
+        var p = t < 17 ? "800" : "1 200";
+        if (friBusy.indexOf(t) > -1) { c = "x"; p = ""; }
+        if (friSel.indexOf(t) > -1) { c = "s"; }
+        sh += '<div class="slot ' + c + '"><span>' + (t < 10 ? "0" : "") + t + ':00</span><span>' + p + '</span></div>';
+      }
+      slots.innerHTML = sh;
+    }
+  })();
+</script>
+</body>
+</html>
