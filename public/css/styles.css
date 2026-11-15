@@ -198,9 +198,9 @@ h3 { font-family: var(--font-body); font-weight: 700; font-size: 18px; line-heig
 .slide img { width: 100%; height: 100%; object-fit: cover; transition: transform .8s var(--ease); }
 .slide:hover img { transform: scale(1.03); }
 .slide-cap { position: absolute; left: 16px; right: 16px; bottom: 16px; display: flex; justify-content: space-between; align-items: center; gap: 12px; pointer-events: none; }
-.slide-cap b, .slide-cap small { padding: 8px 16px; border-radius: 999px; background: rgba(18, 14, 12, .8); border: 1px solid var(--line); }
+.slide-cap b, .slide-cap small { padding: 8px 16px; border-radius: 999px; background: rgba(24, 18, 15, .9); border: 1px solid var(--line); }
 .slide-cap b { font-family: var(--font-serif); font-weight: 600; font-size: 20px; line-height: 1.2; }
-.slide-cap small { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.slide-cap small { font-size: 13px; color: var(--on-photo); font-variant-numeric: tabular-nums; }
 
 /* ---------- лента фото занятий: квадраты на всю ширину ---------- */
 .ribbon { max-width: var(--maxw); margin: 0 auto; padding: clamp(48px, 7vw, 88px) var(--gutter) 0; }
@@ -291,7 +291,7 @@ h3 { font-family: var(--font-body); font-weight: 700; font-size: 18px; line-heig
 .daytab span { font-family: var(--font-serif); font-weight: 600; font-size: 24px; }
 .daytab[aria-selected="true"] { background: var(--violet); border-color: var(--violet); color: var(--ink); }
 .daytab[aria-selected="true"] b { color: var(--ink); }
-.daytab:disabled { opacity: .35; cursor: not-allowed; }
+.daytab:disabled { opacity: .6; color: var(--muted); cursor: not-allowed; }
 .slotlist { display: grid; grid-template-columns: 1fr; gap: 8px; }   /* блоки по 2 часа: время и цена в одну строку */
 .slotlist .slot { justify-content: space-between; padding: 0 14px; font-size: 15px; min-height: 52px; }
 .slotlist .slot.sel { justify-content: flex-start; gap: 8px; }
