@@ -5,7 +5,7 @@ const { buildConfig } = require('../server/config');
 const { templates, pickupTime, icsEvent } = require('../server/mail');
 const { createNotifier } = require('../server/notify');
 
-const cfg = buildConfig({ STUDIO_TZ: 'Asia/Omsk', SMTP_HOST: 'smtp.test', SMTP_USER: 'box@test.ru', MAIL_FROM: 'I love stretch <box@test.ru>' });
+const cfg = buildConfig({ STUDIO_TZ: 'Asia/Omsk', SMTP_HOST: 'smtp.test', SMTP_USER: 'box@test.ru', MAIL_FROM: 'Аренда зала 55 <box@test.ru>' });
 const booking = {
   code: 'AB23', name: 'Анна <script>', email: 'anna@example.com', phone: '+7 900 123-45-67', total: 2000,
   date: '2026-11-13', startHour: 18, endHour: 20, purpose: 'репетиция', people: '8',
@@ -55,7 +55,7 @@ test('после оплаты уходят два письма: клиенту �
   assert.deepEqual(sent.map((o) => o.to).sort(), ['anna@example.com', 'box@test.ru']);
   const client = sent.find((o) => o.to === 'anna@example.com');
   assert.ok(client.html && client.text && client.attachments.length === 1);
-  assert.equal(client.from, 'I love stretch <box@test.ru>');
+  assert.equal(client.from, 'Аренда зала 55 <box@test.ru>');
   assert.match(sent.find((o) => o.to === 'box@test.ru').subject, /Оплата прошла/);
 });
 

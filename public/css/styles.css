@@ -144,7 +144,7 @@ h3 { font-family: var(--font-body); font-weight: 700; font-size: 18px; line-heig
 .hero h1 em { display: inline-flex; align-items: flex-start; gap: 6px; font-style: normal; color: var(--violet); }
 /* название залом каллиграфией */
 .logo { font-family: var(--font-script); font-weight: 400; letter-spacing: 0; text-transform: none; color: var(--violet); line-height: 1; }
-.brand .logo { font-size: 30px; }
+.brand .logo { font-size: 30px; white-space: nowrap; }
 .logo--foot { font-size: 28px; }
 .hero h1.logo-title { font-family: var(--font-script); font-weight: 400; font-size: clamp(64px, 9vw, 136px); line-height: 1.05; letter-spacing: 0; color: var(--text); }
 .top-actions { display: flex; align-items: center; gap: 8px; }
@@ -553,7 +553,7 @@ dialog::backdrop { background: rgba(8, 6, 11, .8); }
 @media (max-width: 720px) {
   .top-phone span { display: none; }
   .top-phone { width: 44px; padding: 0; justify-content: center; border: 1px solid var(--line); }
-  .brand .logo { font-size: 26px; }
+  .brand .logo { font-size: 23px; white-space: nowrap; }
 }
 
 /* сдвинутые до появления блоки не должны давать горизонтальную прокрутку */

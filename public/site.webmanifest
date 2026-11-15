@@ -1,6 +1,6 @@
 {
-  "name": "I love stretch — аренда танцевального зала",
-  "short_name": "I love stretch",
+  "name": "Аренда зала 55 — танцевальный зал в Омске",
+  "short_name": "Аренда зала 55",
   "icons": [
     { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
     { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" }

@@ -1,14 +1,14 @@
 BEGIN:VCALENDAR
 VERSION:2.0
-PRODID:-//I love stretch//booking//RU
+PRODID:-//Arenda zala 55//booking//RU
 CALSCALE:GREGORIAN
 METHOD:PUBLISH
 BEGIN:VEVENT
-UID:booking-AB23-1@ilovestretch
-DTSTAMP:20261112T064322Z
+UID:booking-AB23-1@arenda-zala-55
+DTSTAMP:20261115T104016Z
 DTSTART:20261113T120000Z
 DTEND:20261113T140000Z
-SUMMARY:Аренда зала I love stretch\, бронь AB23
+SUMMARY:Аренда зала Аренда зала 55\, бронь AB23
 LOCATION:Омск\, ул. Фрунзе\, 1 корпус 4\, 11 этаж\, помещение 1131
 DESCRIPTION:Ключ: офис ITB\, 3 этаж\, офис 307\, в 17:45. После аренды верните ключ на стойку ресепшена. Телефон: 8 913 658-19-00
 BEGIN:VALARM

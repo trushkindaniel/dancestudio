@@ -1,4 +1,4 @@
-/* I love stretch — фронтенд записи.
+/* Аренда зала 55 — фронтенд записи.
    Все цены, занятость и бронь приходят с сервера (/api/*). Браузеру ничего не доверяем:
    сервер сам пересчитывает цену и заново проверяет, что слот свободен. */
 (function () {
@@ -761,6 +761,10 @@
       CONFIG = cfg;
       clock = { date: cfg.today, minutes: cfg.nowMinutes, at: Date.now() };
       MAX_WEEK = Math.floor(cfg.horizonDays / 7);
+      // воскресенье после последнего доступного блока: на этой неделе брать нечего, открываем следующую
+      var now = studioNow(), dow = (dateFromKey(now.date).getDay() + 6) % 7;
+      var lastStart = (cfg.closeHour - (cfg.slotHours || 1)) * 60;
+      if (bound === false && dow === 6 && now.minutes + cfg.minLeadMinutes > lastStart) state.weekOffset = 1;
       $('priceDay').textContent = num(cfg.priceDay);
       $('pricePeak').textContent = num(cfg.pricePeak);
       $('formHint').textContent = (cfg.payment === 'transfer' ? 'Оплата переводом на следующем шаге.' : 'Оплата картой или через СБП прямо на сайте, форма ЮKassa.') +

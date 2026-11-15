@@ -82,7 +82,7 @@ function icsEvent(cfg, b) {
   const stamp = f(new Date());
   const events = rangesOf(b).map((r, i) => [
     'BEGIN:VEVENT',
-    `UID:booking-${b.code}-${i + 1}@ilovestretch`,
+    `UID:booking-${b.code}-${i + 1}@arenda-zala-55`,
     `DTSTAMP:${stamp}`,
     `DTSTART:${f(r.start)}`,
     `DTEND:${f(r.end)}`,
@@ -92,7 +92,7 @@ function icsEvent(cfg, b) {
     'BEGIN:VALARM', 'TRIGGER:-PT60M', 'ACTION:DISPLAY', `DESCRIPTION:${clean('Через час аренда зала')}`, 'END:VALARM',
     'END:VEVENT',
   ].join('\r\n'));
-  return ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//I love stretch//booking//RU', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH', ...events, 'END:VCALENDAR', ''].join('\r\n');
+  return ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Arenda zala 55//booking//RU', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH', ...events, 'END:VCALENDAR', ''].join('\r\n');
 }
 
 const when = (b) => whenLines(b).join('; ');

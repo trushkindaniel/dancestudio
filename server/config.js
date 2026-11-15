@@ -30,7 +30,7 @@ function buildConfig(env = process.env) {
     port: num(env, 'PORT', 3000),
     baseUrl: env.BASE_URL || 'http://localhost:3000',
     tz: env.STUDIO_TZ || 'Asia/Omsk',
-    studioName: env.STUDIO_NAME || 'I love stretch',
+    studioName: env.STUDIO_NAME || 'Аренда зала 55',
 
     openHour: num(env, 'OPEN_HOUR', 9),
     closeHour: num(env, 'CLOSE_HOUR', 21),
