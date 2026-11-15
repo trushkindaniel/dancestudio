@@ -55,7 +55,12 @@ async function main() {
   timer.unref();
   runSweep();
 
-  server.listen(cfg.port, () => console.log(`Сайт: ${cfg.baseUrl.replace(/\/$/, '')}  (порт ${cfg.port}, календарь: ${cfg.calendarDriver}, оплата: ${cfg.payment.provider})`));
+  const onSocket = typeof cfg.port === 'string';
+  if (onSocket) { try { fs.rmSync(cfg.port); } catch {} } // сокет мог остаться от прошлого запуска
+  server.listen(cfg.port, () => {
+    if (onSocket) fs.chmodSync(cfg.port, 0o666); // веб-сервер хостинга должен достучаться до сокета
+    console.log(`Сайт: ${cfg.baseUrl.replace(/\/$/, '')}  (порт ${cfg.port}, календарь: ${cfg.calendarDriver}, оплата: ${cfg.payment.provider})`);
+  });
 
   const stop = () => { clearInterval(timer); server.close(() => process.exit(0)); setTimeout(() => process.exit(0), 3000).unref(); };
   process.on('SIGINT', stop);

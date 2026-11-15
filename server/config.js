@@ -27,7 +27,8 @@ function num(env, key, def) {
 
 function buildConfig(env = process.env) {
   const cfg = {
-    port: num(env, 'PORT', 3000),
+    // число — TCP-порт; иначе путь к сокет-файлу (так запускает Node.js панель ISPmanager)
+    port: /^\d*$/.test(env.PORT || '') ? num(env, 'PORT', 3000) : env.PORT,
     baseUrl: env.BASE_URL || 'http://localhost:3000',
     tz: env.STUDIO_TZ || 'Asia/Omsk',
     studioName: env.STUDIO_NAME || 'Аренда зала 55',
