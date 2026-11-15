@@ -102,6 +102,11 @@ function createGoogleCalendar(cfg, deps = {}) {
       return j.items && j.items.length ? normalize(j.items[0]) : null;
     },
 
+    async findAllByCode(code) {
+      const j = await call('GET', '/events', { query: { privateExtendedProperty: `code=${code}`, singleEvents: 'true', maxResults: '50' } });
+      return (j.items || []).map(normalize);
+    },
+
     async listPending() {
       const j = await call('GET', '/events', { query: { privateExtendedProperty: 'status=pending', singleEvents: 'true', maxResults: '250' } });
       return (j.items || []).map(normalize);

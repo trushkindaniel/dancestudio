@@ -3,13 +3,27 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Зал «Пульс» — аренда танцевального зала 130 м² по часам в Омске</title>
+<title>I love stretch — аренда танцевального зала 130 м² по часам в Омске</title>
 <meta name="description" content="Танцевальный зал 130 м² в аренду по часам в Омске, ул. Фрунзе, 1 к4. Для тренеров, репетиций, мастер-классов и съёмок. Свободное время в календаре, оплата онлайн.">
 <meta name="theme-color" content="#120e0c">
-<script>document.documentElement.classList.add('js');</script>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
+<script>
+  /* Анимация первого экрана стартует, когда загрузится каллиграфический шрифт (но не дольше 0,7 с) */
+  (function () {
+    var d = document.documentElement, go = function () { requestAnimationFrame(function () { d.classList.add('is-ready'); }); };
+    d.classList.add('js');
+    if (document.fonts && document.fonts.ready) Promise.race([document.fonts.ready, new Promise(function (r) { setTimeout(r, 700); })]).then(go);
+    else setTimeout(go, 100);
+  })();
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500;1,600&family=Manrope:wght@400;500;600;700&family=Unbounded:wght@300;500;700&display=swap" rel="stylesheet">
+<!-- каллиграфия без подмены шрифта: надпись не «прыгает» с запасного шрифта -->
+<link href="https://fonts.googleapis.com/css2?family=Great+Vibes&display=block&text=Ilovestrch%20" rel="stylesheet">
 <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
@@ -22,9 +36,8 @@
 <a class="skip" href="#booking">Перейти к записи</a>
 
 <header class="top">
-  <a class="brand" href="#top" aria-label="Зал «Пульс», наверх">
-    <svg class="spark" width="18" height="18" aria-hidden="true"><use href="#spark"/></svg>
-    <span>Пульс</span>
+  <a class="brand" href="#top" aria-label="I love stretch, наверх">
+    <span class="logo">I love stretch</span>
   </a>
   <nav class="nav" aria-label="Разделы">
     <a href="#prices">Цены</a>
@@ -33,7 +46,10 @@
     <a href="#rules">Правила</a>
     <a href="#contacts">Контакты</a>
   </nav>
-  <a class="btn btn-ghost btn-sm" href="#booking">Записаться</a>
+  <div class="top-actions">
+    <a class="top-phone" href="tel:+79136581900" aria-label="Позвонить: 8 913 658-19-00"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.6 10.8a15.2 15.2 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25 11.4 11.4 0 0 0 3.6.57 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.45.57 3.57a1 1 0 0 1-.25 1z" fill="currentColor"/></svg><span>8 913 658-19-00</span></a>
+    <a class="btn btn-ghost btn-sm" href="#booking">Записаться</a>
+  </div>
 </header>
 
 <main id="top">
@@ -41,13 +57,13 @@
   <!-- HERO: широкое фото на всю высоту экрана, текст слева, реальное фото зала справа -->
   <section class="hero">
     <div class="hero-media">
-      <img class="hero-photo" src="img/heels-hero.webp" srcset="img/heels-hero-800.webp 800w, img/heels-hero.webp 1408w" sizes="(max-width: 960px) 100vw, 66vw" width="1408" height="1408" fetchpriority="high"
+      <img class="hero-photo" data-zoom="mood" data-full="img/heels-hero.webp" src="img/heels-hero.webp" srcset="img/heels-hero-800.webp 800w, img/heels-hero.webp 1408w" sizes="(max-width: 960px) 100vw, 66vw" width="1408" height="1408" fetchpriority="high"
            alt="Танцовщица в туфлях на каблуках в тёмном зале с зеркалом">
     </div>
 
     <div class="hero-inner">
       <div class="hero-text">
-        <h1>Зал <em>Пульс<svg class="spark h1-spark" width="44" height="44" aria-hidden="true"><use href="#spark"/></svg></em></h1>
+        <h1 class="logo-title">I love <em>stretch<svg class="spark h1-spark" width="44" height="44" aria-hidden="true"><use href="#spark"/></svg></em></h1>
         <p class="lead">Танцевальный зал 130 м² в аренду по часам. Для тренеров и их групп, репетиций, мастер-классов и съёмок. Выбираете свободное время в календаре, оплачиваете онлайн и приходите со своими занятиями.</p>
         <div class="cta-row">
           <a class="btn" href="#booking">Выбрать время</a>
@@ -61,7 +77,7 @@
       </div>
 
       <figure class="hero-real">
-        <img src="img/hall.webp" srcset="img/hall-640.webp 640w, img/hall.webp 1280w" sizes="(max-width: 960px) 120px, 270px" width="1280" height="964" alt="Реальное фото зала: светлый пол, окна, зеркала и розовые гамаки">
+        <img data-zoom="hall" data-full="img/hall.webp" src="img/hall.webp" srcset="img/hall-640.webp 640w, img/hall.webp 1280w" sizes="(max-width: 960px) 120px, 270px" width="1280" height="964" alt="Реальное фото зала: светлый пол, окна, зеркала и розовые гамаки">
         <figcaption><b>Наш зал</b><span>реальное фото</span></figcaption>
       </figure>
     </div>
@@ -76,61 +92,102 @@
     </svg>
   </section>
 
-  <!-- USES: примеры того, как арендаторы используют зал -->
-  <section class="styles" aria-labelledby="usesTitle">
-    <div class="styles-head">
-      <h2 id="usesTitle">Для чего арендуют зал</h2>
-      <p>Мы сдаём зал, занятия не ведём. Вы приходите со своей группой, программой или съёмочной командой.</p>
+  <!-- HALL: второй экран, слайдер реальных фото зала -->
+  <section class="hall" id="gallery" aria-labelledby="hallTitle">
+    <div class="hall-head">
+      <h2 id="hallTitle">Наш зал</h2>
+      <p>Только реальные фото: 130 м², окна во всю стену, зеркала, гамаки, раздевалка и ресепшен. Листайте в обе стороны и нажмите на фото, чтобы рассмотреть.</p>
     </div>
-    <ul class="styles-row">
-      <li class="style-card"><img src="img/style-heels.webp" width="273" height="678" loading="lazy" alt=""><span>Классы хилс</span></li>
-      <li class="style-card"><img src="img/style-twerk.webp" width="275" height="676" loading="lazy" alt=""><span>Тверк-интенсивы</span></li>
-      <li class="style-card"><img src="img/style-aerial.webp" width="273" height="702" loading="lazy" alt=""><span>Аэройога в гамаках</span></li>
-      <li class="style-card"><img src="img/style-contemp.webp" width="272" height="702" loading="lazy" alt=""><span>Постановки и контемп</span></li>
-      <li class="style-card style-card--real"><img src="img/zone.webp" srcset="img/zone-640.webp 640w, img/zone.webp 1280w" sizes="240px" width="1280" height="964" loading="lazy" alt="Реальное фото: зеркала, стеллажи с ковриками и деревянные перегородки"><span>Репетиции и съёмки</span><small>реальное фото</small></li>
+    <ul class="slider" id="hallSlider" data-slider data-count="hallCount" tabindex="0" aria-label="Фото зала, листайте">
+      <li class="slide"><img data-zoom="hall" data-full="img/hall.webp" src="img/hall.webp" srcset="img/hall-640.webp 640w, img/hall.webp 1280w" sizes="(max-width: 720px) 86vw, 760px" width="1280" height="964" loading="eager" alt="Основной зал: большие окна, зеркала, розовые гамаки, светлый пол"><span class="slide-cap"><b>Основной зал</b><small>1 / 5</small></span></li>
+      <li class="slide"><img data-zoom="hall" data-full="img/zone.webp" src="img/zone.webp" srcset="img/zone-640.webp 640w, img/zone.webp 1280w" sizes="(max-width: 720px) 86vw, 760px" width="1280" height="964" loading="lazy" alt="Зона с зеркалами, стеллажами с ковриками и деревянными перегородками"><span class="slide-cap"><b>Зеркала и инвентарь</b><small>2 / 5</small></span></li>
+      <li class="slide"><img data-zoom="hall" data-full="img/lockers.webp" src="img/lockers.webp" srcset="img/lockers-640.webp 640w, img/lockers.webp 1280w" sizes="(max-width: 720px) 86vw, 760px" width="1280" height="964" loading="lazy" alt="Раздевалка: шкафчики с номерами и скамейки"><span class="slide-cap"><b>Раздевалка</b><small>3 / 5</small></span></li>
+      <li class="slide"><img data-zoom="hall" data-full="img/mirror.webp" src="img/mirror.webp" srcset="img/mirror-640.webp 640w, img/mirror.webp 1280w" sizes="(max-width: 720px) 86vw, 760px" width="1280" height="964" loading="lazy" alt="Зеркало с подсветкой и фен в раздевалке"><span class="slide-cap"><b>Зеркало и фен</b><small>4 / 5</small></span></li>
+      <li class="slide"><img data-zoom="hall" data-full="img/reception.webp" src="img/reception.webp" srcset="img/reception-640.webp 640w, img/reception.webp 1280w" sizes="(max-width: 720px) 86vw, 760px" width="1280" height="964" loading="lazy" alt="Ресепшен и зона ожидания со скамейкой"><span class="slide-cap"><b>Ресепшен</b><small>5 / 5</small></span></li>
     </ul>
+    <div class="slider-nav">
+      <button class="icon-btn" type="button" data-nav="hallSlider" data-dir="-1" aria-label="Предыдущее фото">
+        <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <span class="slider-count" id="hallCount" aria-live="polite">1 / 5</span>
+      <button class="icon-btn" type="button" data-nav="hallSlider" data-dir="1" aria-label="Следующее фото">
+        <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
   </section>
 
   <!-- HOW -->
-  <section class="section">
-    <h2 class="reveal">Как арендовать</h2>
-    <ol class="steps">
-      <li class="reveal"><span class="num">1</span><h3>Выберите время</h3><p>Кликайте по свободным часам в календаре. Цена видна сразу.</p></li>
-      <li class="reveal"><span class="num">2</span><h3>Оставьте данные</h3><p>Имя, телефон, почта и, если хотите, формат: тренировка, репетиция, съёмка.</p></li>
-      <li class="reveal"><span class="num">3</span><h3>Оплатите онлайн</h3><p>Картой или через СБП прямо на сайте, в форме ЮKassa.</p></li>
-      <li class="reveal"><span class="num">4</span><h3>Получите письмо</h3><p>Как только оплата пройдёт, бронь подтвердится. Зал ваш на всё оплаченное время.</p></li>
-    </ol>
+  <section class="section how">
+    <div class="how-photos">
+      <img class="how-a" data-zoom="mood" data-full="img/heels-mirror.webp" src="img/heels-mirror-640.webp" srcset="img/heels-mirror-640.webp 640w, img/heels-mirror.webp 1152w" sizes="(max-width: 960px) 70vw, 340px" width="1152" height="1728" loading="lazy" alt="Танцовщица на каблуках у зеркала в тёмном зале">
+      <img class="how-b" data-zoom="mood" data-full="img/g-heels-group.webp" src="img/g-heels-group.webp" width="459" height="461" loading="lazy" alt="Групповое занятие на каблуках у зеркал">
+    </div>
+    <div class="how-text">
+      <h2>Как арендовать</h2>
+      <ol class="steps">
+        <li><span class="num">1</span><div><h3>Выберите время</h3><p>Зал бронируется блоками по 2 часа. Можно взять несколько блоков подряд, цена видна сразу.</p></div></li>
+        <li><span class="num">2</span><div><h3>Оставьте данные</h3><p>Имя, телефон, почта и, если хотите, формат: тренировка, репетиция, съёмка.</p></div></li>
+        <li><span class="num">3</span><div><h3>Оплатите онлайн</h3><p>Картой или через СБП прямо на сайте, в форме ЮKassa.</p></div></li>
+        <li><span class="num">4</span><div><h3>Получите письмо с инструкцией</h3><p>Время, адрес и где взять ключ: за 15 минут до начала в офисе ITB, 3 этаж, офис 307.</p></div></li>
+      </ol>
+    </div>
   </section>
 
   <!-- PRICES -->
   <section class="section" id="prices">
-    <h2 class="reveal">Цены</h2>
-    <p class="section-lead reveal">Платите только за часы аренды, каждый час считается отдельно. Вечер самое востребованное время, поэтому дороже.</p>
+    <h2>Цены</h2>
+    <p class="section-lead">Зал бронируется блоками по 2 часа. Вечер самое востребованное время, поэтому дороже.</p>
     <div class="tariffs">
-      <article class="tariff tariff-day reveal">
+      <article class="tariff tariff-day">
+        <img class="tariff-photo" data-zoom="mood" data-full="img/g-aerial-hammock.webp" src="img/g-aerial-hammock.webp" width="459" height="461" loading="lazy" alt="Днём в зале светло: растяжка в гамаке">
         <p class="tariff-name">День</p>
         <p class="tariff-price"><span id="priceDay">800</span> ₽<small>/час</small></p>
         <p class="tariff-time">09:00 – 17:00</p>
+        <p class="tariff-note">1 600 ₽ за блок 2 часа</p>
       </article>
-      <article class="tariff tariff-peak reveal">
+      <article class="tariff tariff-peak">
+        <img class="tariff-photo" data-zoom="mood" data-full="img/heels-hero.webp" src="img/heels-hero-800.webp" srcset="img/heels-hero-800.webp 800w, img/heels-hero.webp 1408w" sizes="(max-width: 720px) 100vw, 560px" width="1408" height="1408" loading="lazy" alt="Вечерняя тренировка: тёплый свет и зеркала">
         <p class="tariff-name">Вечер</p>
         <p class="tariff-price"><span id="pricePeak">1 000</span> ₽<small>/час</small></p>
         <p class="tariff-time">17:00 – 21:00</p>
+        <p class="tariff-note">2 000 ₽ за блок 2 часа</p>
       </article>
     </div>
-    <div class="timeline reveal" aria-hidden="true">
+    <div class="timeline" aria-hidden="true">
       <div class="tl-bar"><i class="d" style="flex:8"></i><i class="p" style="flex:4"></i></div>
       <div class="tl-scale"><span>09</span><span>13</span><span>17</span><span>21</span></div>
     </div>
   </section>
 
+  <!-- RIBBON: лента фото занятий, листается в обе стороны -->
+  <section class="ribbon" aria-label="Фото занятий в зале">
+    <ul class="slider slider--tiles" id="moodSlider" data-slider data-count="moodCount" tabindex="0" aria-label="Фото занятий, листайте">
+      <li class="tile"><img data-zoom="mood" data-full="img/g-heels-group.webp" src="img/g-heels-group.webp" width="459" height="459" loading="lazy" alt="Групповое занятие на каблуках у зеркал"></li>
+      <li class="tile"><img data-zoom="mood" data-full="img/g-aerial-lilac.webp" src="img/g-aerial-lilac.webp" width="459" height="459" loading="lazy" alt="Аэройога на полотнах в светлом зале"></li>
+      <li class="tile"><img data-zoom="mood" data-full="img/g-heels-floor.webp" src="img/g-heels-floor.webp" width="459" height="459" loading="lazy" alt="Хилс: партер на каблуках"></li>
+      <li class="tile"><img data-zoom="mood" data-full="img/g-aerial-loft.webp" src="img/g-aerial-loft.webp" width="459" height="459" loading="lazy" alt="Полотна в зале с большими окнами"></li>
+      <li class="tile"><img data-zoom="mood" data-full="img/g-heels-fringe.webp" src="img/g-heels-fringe.webp" width="459" height="459" loading="lazy" alt="Танцовщица на каблуках в тёплом зале со станком"></li>
+      <li class="tile"><img data-zoom="mood" data-full="img/g-aerial-hammock.webp" src="img/g-aerial-hammock.webp" width="459" height="459" loading="lazy" alt="Растяжка в гамаке"></li>
+      <li class="tile"><img data-zoom="mood" data-full="img/g-twerk.webp" src="img/g-twerk.webp" width="459" height="459" loading="lazy" alt="Тверк в тёмном зале"></li>
+    </ul>
+    <div class="slider-nav">
+      <button class="icon-btn" type="button" data-nav="moodSlider" data-dir="-1" aria-label="Предыдущее фото">
+        <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <span class="slider-count" id="moodCount" aria-live="polite">1 / 7</span>
+      <button class="icon-btn" type="button" data-nav="moodSlider" data-dir="1" aria-label="Следующее фото">
+        <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+  </section>
+
   <!-- BOOKING -->
   <section class="section booking" id="booking" aria-labelledby="bookingTitle">
-    <h2 id="bookingTitle" class="reveal">Выберите время</h2>
-    <p class="section-lead reveal">Один заказ — один день, часы подряд. Чтобы убрать час, нажмите на крайний выбранный.</p>
+    <h2 id="bookingTitle">Выберите время</h2>
+    <p class="section-lead">Бронь блоками по 2 часа: 09–11, 11–13 и так далее. В один день можно взять несколько блоков подряд, чтобы убрать блок, нажмите на крайний выбранный.</p>
 
     <div class="book-grid">
-      <div class="cal-card reveal">
+      <div class="cal-card">
         <div class="cal-head">
           <button class="icon-btn" id="prevWeek" type="button" aria-label="Предыдущая неделя">
             <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -163,7 +220,8 @@
         </ul>
       </div>
 
-      <aside class="summary reveal" aria-label="Ваша бронь">
+      <aside class="summary" aria-label="Ваша бронь">
+        <img class="summary-photo" data-zoom="mood" data-full="img/g-heels-fringe.webp" src="img/g-heels-fringe.webp" width="458" height="461" loading="lazy" alt="Танцовщица на каблуках в тёплом зале со станком">
         <h3>Ваша бронь</h3>
         <div id="summaryEmpty" class="empty">
           <svg class="spark" width="34" height="34" aria-hidden="true"><use href="#spark"/></svg>
@@ -218,7 +276,7 @@
           </div>
           <label class="check">
             <input id="fConsent" type="checkbox" required>
-            <span>Согласен на обработку персональных данных</span>
+            <span>Согласен с <a href="#rules">правилами пользования</a> и на обработку персональных данных</span>
           </label>
           <p class="err" id="eConsent" aria-live="polite"></p>
 
@@ -233,70 +291,59 @@
     </div>
   </section>
 
-  <!-- GALLERY -->
-  <section class="section" id="gallery">
-    <h2 class="reveal">Наш зал</h2>
-    <p class="section-lead reveal">Только реальные фото. 130 м², большие окна и зеркала, гамаки для аэройоги, раздевалка со шкафчиками и ресепшен.</p>
-    <div class="bento">
-      <figure class="ph ph-1 reveal"><img src="img/hall.webp" srcset="img/hall-640.webp 640w, img/hall.webp 1280w" sizes="(max-width: 960px) 100vw, 600px" width="1280" height="964" loading="lazy" alt="Основной зал: окна, зеркала, розовые гамаки, светлый пол"><figcaption>Основной зал</figcaption></figure>
-      <figure class="ph ph-2 reveal"><img src="img/zone.webp" srcset="img/zone-640.webp 640w, img/zone.webp 1280w" sizes="(max-width: 960px) 50vw, 300px" width="1280" height="964" loading="lazy" alt="Зона с зеркалами, стеллажами и деревянными перегородками"><figcaption>Зеркала и инвентарь</figcaption></figure>
-      <figure class="ph ph-3 reveal"><img src="img/mirror.webp" srcset="img/mirror-640.webp 640w, img/mirror.webp 1280w" sizes="(max-width: 960px) 50vw, 300px" width="1280" height="964" loading="lazy" alt="Зеркало с подсветкой и фен в раздевалке"><figcaption>Зеркало и фен</figcaption></figure>
-      <figure class="ph ph-4 reveal"><img src="img/lockers.webp" srcset="img/lockers-640.webp 640w, img/lockers.webp 1280w" sizes="(max-width: 960px) 100vw, 600px" width="1280" height="964" loading="lazy" alt="Раздевалка: шкафчики с номерами и скамейки"><figcaption>Раздевалка</figcaption></figure>
-      <figure class="ph ph-5 reveal"><img src="img/reception.webp" srcset="img/reception-640.webp 640w, img/reception.webp 1280w" sizes="(max-width: 960px) 100vw, 600px" width="1280" height="964" loading="lazy" alt="Ресепшен и зона ожидания со скамейкой"><figcaption>Ресепшен</figcaption></figure>
-      <a class="ph ph-6 ph-cta reveal" href="#booking"><span>Свободные часы<br>на этой неделе</span><b>Выбрать время →</b></a>
-    </div>
-  </section>
-
   <!-- RULES -->
   <section class="section" id="rules">
-    <h2 class="reveal">Что входит и как у нас принято</h2>
-    <div class="rules">
-      <div class="reveal">
+    <h2>Что входит и как у нас принято</h2>
+    <div class="rules rules--photos">
+      <div class="rules-photos">
+        <img data-zoom="hall" data-full="img/mirror.webp" src="img/mirror-640.webp" width="1280" height="964" loading="lazy" alt="Зеркало с подсветкой и фен в раздевалке">
+        <img data-zoom="hall" data-full="img/lockers.webp" src="img/lockers-640.webp" width="1280" height="964" loading="lazy" alt="Раздевалка со шкафчиками">
+      </div>
+      <div>
         <h3>В аренду входит</h3>
         <ul class="ticks">
-          <li>Колонка с подключением по Bluetooth</li>
           <li>Зеркала во всю стену</li>
-          <li>Вода и розетки</li>
           <li>Раздевалка со шкафчиками, зеркало и фен</li>
           <li>Гамаки для аэройоги</li>
         </ul>
       </div>
-      <div class="reveal">
-        <h3>Правила</h3>
-        <ul class="ticks">
-          <li>Приходите в сменной обуви</li>
-          <li>Бесплатная отмена за 24 часа</li>
-          <li>Оставьте зал чистым</li>
-          <li>Не опаздывайте: время считается с начала часа</li>
-        </ul>
+      <div>
+        <h3>Правила пользования</h3>
+        <ol class="ticks rules-steps">
+          <li><span>После оплаты на почту придёт письмо: дата, время, адрес и эта инструкция.</span></li>
+          <li><span><b>За 15 минут до начала аренды</b> зайдите в офис ITB: <b>3 этаж, офис 307</b>, и заберите ключ от зала.</span></li>
+          <li><span>Зал на 11 этаже, помещение 1131. Время аренды считается с начала часа.</span></li>
+          <li><span>Приходите в сменной обуви и оставьте зал чистым.</span></li>
+          <li><span><b>Перед уходом всё закройте:</b> окна, свет, дверь зала.</span></li>
+          <li><span>После аренды <b>верните ключ на стойку ресепшена.</b></span></li>
+        </ol>
       </div>
     </div>
   </section>
 
   <!-- CONTACTS -->
   <section class="section contacts" id="contacts">
-    <h2 class="reveal">Как нас найти</h2>
+    <h2>Как нас найти</h2>
     <div class="contact-grid">
-      <div class="reveal">
-        <p class="contact-line"><span>Адрес</span>Омск, ул. Фрунзе, 1 корпус 4<br>11 этаж, помещение 1131</p>
-        <p class="contact-line"><span>Телефон</span><a href="tel:+79136581920">8 913 658-19-20</a></p>
+      <div>
+        <p class="contact-line"><span>Адрес</span><a href="https://yandex.ru/maps/66/omsk/?ll=73.356270%2C54.993439&amp;z=17&amp;pt=73.356270%2C54.993439%2Cpm2rdm" target="_blank" rel="noopener">Омск, ул. Фрунзе, 1 корпус 4<br>11 этаж, помещение 1131</a></p>
+        <p class="contact-line"><span>Телефон</span><a href="tel:+79136581900">8 913 658-19-00</a><small>нажмите, чтобы позвонить</small></p>
         <!-- Telegram и почта: добавить, когда будут
         <p class="contact-line"><span>Telegram</span><a href="https://t.me/...">@...</a></p>
         <p class="contact-line"><span>Почта</span><a href="mailto:...">...</a></p>
         -->
         <p class="contact-line"><span>Часы</span>Каждый день, 09:00–21:00, по брони</p>
       </div>
-      <a class="map map-link reveal" href="https://yandex.ru/maps/?text=%D0%9E%D0%BC%D1%81%D0%BA%2C%20%D1%83%D0%BB%D0%B8%D1%86%D0%B0%20%D0%A4%D1%80%D1%83%D0%BD%D0%B7%D0%B5%2C%201%D0%BA4" target="_blank" rel="noopener">
-        <span class="map-addr">ул. Фрунзе, 1 к4</span>
-        <span class="map-floor">11 этаж · помещение 1131</span>
-        <b>Открыть в Яндекс Картах →</b>
+      <a class="map map-live" href="https://yandex.ru/maps/66/omsk/?ll=73.356270%2C54.993439&amp;z=17&amp;pt=73.356270%2C54.993439%2Cpm2rdm" target="_blank" rel="noopener" aria-label="Открыть адрес в Яндекс Картах">
+        <iframe src="https://www.openstreetmap.org/export/embed.html?bbox=73.3490%2C54.9908%2C73.3636%2C54.9961&amp;layer=mapnik&amp;marker=54.993439%2C73.356270" title="Карта: Омск, ул. Фрунзе, 1 к4" loading="lazy" tabindex="-1" aria-hidden="true"></iframe>
+        <span class="map-cap"><b>ул. Фрунзе, 1 к4</b><span>11 этаж · помещение 1131</span><em>Открыть в Яндекс Картах →</em></span>
       </a>
     </div>
   </section>
 </main>
 
 <footer class="foot">
-  <span>© Зал «Пульс»</span>
+  <span class="logo logo--foot">I love stretch</span>
   <span class="muted">Аренда танцевального зала по часам · Омск</span>
 </footer>
 
@@ -327,6 +374,28 @@
     </div>
     <p class="demo" id="payNote">Запомните код брони: по нему администратор найдёт ваш платёж.</p>
   </div>
+</dialog>
+
+<!-- НАВЕРХ: только на телефоне, появляется после первого экрана -->
+<button class="to-top" id="toTop" type="button" aria-label="Наверх" tabindex="-1">
+  <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M5.5 11.5L12 5l6.5 6.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+</button>
+
+<!-- ПРОСМОТР ФОТО -->
+<dialog class="lightbox" id="lightbox" aria-label="Просмотр фото">
+  <figure class="lb-figure" id="lbFigure">
+    <!-- картинку вставляет скрипт при первом открытии -->
+    <figcaption><span id="lbCap"></span><span class="lb-count" id="lbCount"></span></figcaption>
+  </figure>
+  <button class="lb-btn lb-prev" type="button" id="lbPrev" aria-label="Предыдущее фото">
+    <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  </button>
+  <button class="lb-btn lb-next" type="button" id="lbNext" aria-label="Следующее фото">
+    <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  </button>
+  <button class="lb-btn lb-close" type="button" id="lbClose" aria-label="Закрыть">
+    <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+  </button>
 </dialog>
 
 <script src="js/app.js"></script>

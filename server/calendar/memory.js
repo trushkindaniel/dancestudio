@@ -34,6 +34,11 @@ function createMemoryCalendar() {
       return null;
     },
 
+    /** Все события одной брони (бронь может состоять из нескольких промежутков) */
+    async findAllByCode(code) {
+      return [...events.values()].filter((e) => e.private.code === code).map(clone);
+    },
+
     async listPending() {
       return [...events.values()].filter((e) => e.private.status === 'pending').map(clone);
     },

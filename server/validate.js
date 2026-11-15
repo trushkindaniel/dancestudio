@@ -45,7 +45,12 @@ function validateBooking(input, cfg, now) {
     okHours = sorted.every((h, i) => h >= cfg.openHour && h < cfg.closeHour && (i === 0 || h === sorted[i - 1] + 1));
     if (okHours) hours.splice(0, hours.length, ...sorted);
   }
-  if (!okHours) f.hours = `Выберите от 1 до ${cfg.maxHours} часов подряд в пределах ${cfg.openHour}:00–${cfg.closeHour}:00`;
+  // бронь только целыми блоками: начало на границе блока, длина кратна блоку
+  const slot = cfg.slotHours || 1;
+  if (okHours && (hours.length % slot || (hours[0] - cfg.openHour) % slot)) {
+    okHours = false;
+    f.hours = `Бронь блоками по ${slot} ч: ${cfg.openHour}:00–${cfg.openHour + slot}:00, ${cfg.openHour + slot}:00–${cfg.openHour + 2 * slot}:00 и так далее`;
+  } else if (!okHours) f.hours = `Выберите от 1 до ${cfg.maxHours} часов подряд в пределах ${cfg.openHour}:00–${cfg.closeHour}:00`;
 
   if (!isDateKey(date)) {
     f.date = 'Некорректная дата';
@@ -60,4 +65,27 @@ function validateBooking(input, cfg, now) {
   return { date, hours, name, phone, email, note, purpose, purposeLabel: PURPOSES[purpose] || '', people };
 }
 
-module.exports = { validateBooking, PURPOSES };
+/**
+ * Заявка из нескольких промежутков (можно в разные дни): input.ranges = [{ date, hours }, …].
+ * Старый формат с одним date/hours тоже принимается.
+ */
+function validateOrder(input, cfg, now) {
+  const src = input && typeof input === 'object' ? input : {};
+  const raw = Array.isArray(src.ranges) ? src.ranges : [{ date: src.date, hours: src.hours }];
+  const maxRanges = cfg.maxRanges || 10;
+  if (!raw.length) throw new AppError(400, 'validation', 'Выберите время в календаре', { hours: 'Выберите время в календаре' });
+  if (raw.length > maxRanges) throw new AppError(400, 'validation', `За одну бронь не больше ${maxRanges} промежутков`, { hours: `Не больше ${maxRanges} промежутков` });
+  const parts = raw.map((r) => validateBooking({ ...src, date: r && r.date, hours: r && Array.isArray(r.hours) ? [...r.hours] : r && r.hours }, cfg, now));
+  // промежутки одного дня не должны пересекаться
+  const seen = new Set();
+  for (const p of parts) for (const h of p.hours) {
+    const k = `${p.date}:${h}`;
+    if (seen.has(k)) throw new AppError(400, 'validation', 'Выбранные промежутки пересекаются', { hours: 'Выбранные промежутки пересекаются' });
+    seen.add(k);
+  }
+  parts.sort((a, b) => (a.date === b.date ? a.hours[0] - b.hours[0] : a.date < b.date ? -1 : 1));
+  const { name, phone, email, note, purpose, purposeLabel, people } = parts[0];
+  return { name, phone, email, note, purpose, purposeLabel, people, ranges: parts.map((p) => ({ date: p.date, hours: p.hours })) };
+}
+
+module.exports = { validateBooking, validateOrder, PURPOSES };

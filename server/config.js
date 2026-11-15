@@ -30,7 +30,7 @@ function buildConfig(env = process.env) {
     port: num(env, 'PORT', 3000),
     baseUrl: env.BASE_URL || 'http://localhost:3000',
     tz: env.STUDIO_TZ || 'Asia/Omsk',
-    studioName: env.STUDIO_NAME || 'Зал «Пульс»',
+    studioName: env.STUDIO_NAME || 'I love stretch',
 
     openHour: num(env, 'OPEN_HOUR', 9),
     closeHour: num(env, 'CLOSE_HOUR', 21),
@@ -40,6 +40,9 @@ function buildConfig(env = process.env) {
     holdMinutes: num(env, 'HOLD_MINUTES', 120),
     horizonDays: num(env, 'HORIZON_DAYS', 60),
     maxHours: num(env, 'MAX_HOURS', 8),
+    // бронь блоками: 2 часа = 09–11, 11–13, …; блок не пересекает границу тарифов, если PEAK_FROM попадает на начало блока
+    slotHours: num(env, 'SLOT_HOURS', 2),
+    maxRanges: num(env, 'MAX_RANGES', 10),   // сколько промежутков (в разные дни) можно взять за одну бронь
     minLeadMinutes: num(env, 'MIN_LEAD_MINUTES', 60),
     maxSlotsRangeDays: 14,
 
@@ -61,7 +64,18 @@ function buildConfig(env = process.env) {
       pass: env.SMTP_PASS || '',
       from: env.MAIL_FROM || '',
     },
-    adminEmail: env.ADMIN_EMAIL || '',
+    // куда слать «оплата прошла»; пока адрес не задан, письмо уходит на ящик отправителя
+    adminEmail: env.ADMIN_EMAIL || env.SMTP_USER || '',
+
+    // что клиент получает в письме после оплаты
+    venue: {
+      address: env.VENUE_ADDRESS || 'Омск, ул. Фрунзе, 1 корпус 4, 11 этаж, помещение 1131',
+      mapUrl: env.VENUE_MAP_URL || 'https://yandex.ru/maps/66/omsk/?ll=73.356270%2C54.993439&z=17&pt=73.356270%2C54.993439%2Cpm2rdm',
+      phone: env.VENUE_PHONE || '8 913 658-19-00',
+      keyPickup: env.KEY_PICKUP || 'офис ITB, 3 этаж, офис 307',
+      keyReturn: env.KEY_RETURN || 'стойку ресепшена',
+      arriveBeforeMin: num(env, 'ARRIVE_BEFORE_MIN', 15),
+    },
     telegram: { token: env.TELEGRAM_BOT_TOKEN || '', chatId: env.TELEGRAM_CHAT_ID || '' },
 
     payment: {
@@ -82,6 +96,9 @@ function buildConfig(env = process.env) {
   };
 
   if (cfg.openHour >= cfg.closeHour) throw new Error('OPEN_HOUR должен быть меньше CLOSE_HOUR');
+  if (!Number.isInteger(cfg.slotHours) || cfg.slotHours < 1) throw new Error('SLOT_HOURS: целое число часов, от 1');
+  if ((cfg.closeHour - cfg.openHour) % cfg.slotHours) throw new Error('Часы работы должны делиться на блоки SLOT_HOURS без остатка');
+  if (cfg.maxHours % cfg.slotHours) throw new Error('MAX_HOURS должен делиться на SLOT_HOURS');
   if (!['memory', 'google'].includes(cfg.calendarDriver)) throw new Error('CALENDAR_DRIVER: memory или google');
   const pay = cfg.payment;
   if (!['yookassa', 'fake', 'transfer'].includes(pay.provider)) throw new Error('PAYMENT_PROVIDER: yookassa, fake или transfer');
@@ -106,6 +123,7 @@ function publicConfig(cfg) {
     holdMinutes: cfg.holdMinutes,
     horizonDays: cfg.horizonDays,
     maxHours: cfg.maxHours,
+    slotHours: cfg.slotHours,
     minLeadMinutes: cfg.minLeadMinutes,
     payment: cfg.payment.provider, // yookassa | fake | transfer
   };

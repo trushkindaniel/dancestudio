@@ -9,7 +9,8 @@
     "start": "node server/index.js",
     "dev": "node --watch server/index.js",
     "test": "node scripts/test.js",
-    "check:mail": "node scripts/check-mail.js"
+    "check:mail": "node scripts/check-mail.js",
+    "preview:mail": "node scripts/preview-mail.js"
   },
   "dependencies": {
     "nodemailer": "^6.9.16"

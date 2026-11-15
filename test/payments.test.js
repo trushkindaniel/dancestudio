@@ -87,7 +87,7 @@ test('успешная оплата подтверждает бронь один
   assert.equal(after.colorId, cfg.paidColorId);
   assert.match(after.summary, /^✅/);
   assert.equal(sent.filter((x) => x[0] === 'paid').length, 1);
-  assert.deepEqual(await booking.status(r.code, r.token), { status: 'paid', code: r.code, total: 2000, dateLabel: 'пятница, 13 ноября', timeLabel: '18:00–20:00', deadline: r.deadline });
+  assert.deepEqual(await booking.status(r.code, r.token), { status: 'paid', code: r.code, total: 2000, dateLabel: 'пятница, 13 ноября', timeLabel: '18:00–20:00', whenLabel: 'пятница, 13 ноября, 18:00–20:00', deadline: r.deadline });
 });
 
 test('отменённый платёж освобождает слот', async () => {

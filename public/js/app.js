@@ -1,4 +1,4 @@
-/* Зал «Пульс» — фронтенд записи.
+/* I love stretch — фронтенд записи.
    Все цены, занятость и бронь приходят с сервера (/api/*). Браузеру ничего не доверяем:
    сервер сам пересчитывает цену и заново проверяет, что слот свободен. */
 (function () {
@@ -25,7 +25,8 @@
   // ---------- состояние ----------
   var CONFIG = null;
   var clock = null;                       // «сейчас» в часовом поясе студии, по данным сервера
-  var state = { weekOffset: 0, day: null, sel: { date: null, hours: [] }, busy: {}, loading: false, failed: false };
+  // picks: выбранные часы по дням { '2026-11-16': [9, 10], … } — можно в разные дни и несколько промежутков
+  var state = { weekOffset: 0, day: null, picks: {}, busy: {}, loading: false, failed: false };
   var MAX_WEEK = 8;
 
   function studioNow() {
@@ -34,6 +35,16 @@
     return { date: addDays(clock.date, Math.floor(total / 1440)), minutes: total % 1440 };
   }
   var priceOf = function (h) { return h >= CONFIG.peakFrom ? CONFIG.pricePeak : CONFIG.priceDay; };
+  // бронь блоками по SLOT часов: 09–11, 11–13, …
+  var slotH = function () { return (CONFIG && CONFIG.slotHours) || 1; };
+  var blockHours = function (h) { var a = []; for (var i = 0; i < slotH(); i++) a.push(h + i); return a; };
+  var blockPrice = function (h) { return blockHours(h).reduce(function (t, x) { return t + priceOf(x); }, 0); };
+  function blockStatus(dk, h) {
+    var st = blockHours(h).map(function (x) { return slotStatus(dk, x); });
+    if (st.indexOf('past') > -1) return 'past';
+    if (st.indexOf('busy') > -1) return 'busy';
+    return st[0];
+  }
 
   function weekDays() {
     var t = studioNow().date, dow = (dateFromKey(t).getDay() + 6) % 7;
@@ -74,12 +85,20 @@
     return api('/api/slots?from=' + days[0] + '&to=' + days[6]).then(function (r) {
       Object.keys(r.busy).forEach(function (d) { state.busy[d] = r.busy[d]; });
       state.failed = false;
-      // выбранный час мог быть занят другим клиентом
-      var s = state.sel;
-      if (s.date && state.busy[s.date] && s.hours.some(function (h) { return state.busy[s.date].indexOf(h) > -1; })) {
-        state.sel = { date: null, hours: [] };
-        $('selNote').textContent = 'Выбранное время только что заняли. Выберите другое.';
-      }
+      // выбранное время могли занять другие клиенты: такие блоки снимаем
+      var lost = false;
+      Object.keys(state.picks).forEach(function (d) {
+        var busy = state.busy[d]; if (!busy) return;
+        var keep = state.picks[d].filter(function (h) { return busy.indexOf(h) < 0; });
+        if (keep.length !== state.picks[d].length) {
+          lost = true;
+          // снимаем блок целиком
+          var bad = state.picks[d].filter(function (h) { return busy.indexOf(h) > -1; }).map(function (h) { return h - (h - CONFIG.openHour) % slotH(); });
+          keep = state.picks[d].filter(function (h) { return bad.indexOf(h - (h - CONFIG.openHour) % slotH()) < 0; });
+          if (keep.length) state.picks[d] = keep; else delete state.picks[d];
+        }
+      });
+      if (lost) $('selNote').textContent = 'Часть выбранного времени только что заняли, мы её сняли.';
     }).catch(function () {
       state.failed = true;
     }).then(function () {
@@ -88,33 +107,55 @@
   }
 
   // ---------- выбор часов ----------
-  function toggle(dk, h) {
-    var s = state.sel, note = $('selNote');
-    note.textContent = '';
-    if (s.date !== dk || !s.hours.length) { state.sel = { date: dk, hours: [h] }; return; }
-    var min = s.hours[0], max = s.hours[s.hours.length - 1];
-    if ((h === min - 1 || h === max + 1) && s.hours.length >= CONFIG.maxHours) {
-      note.textContent = 'За одну бронь не больше ' + CONFIG.maxHours + ' часов.'; return;
-    }
-    if (h === min - 1) s.hours.unshift(h);
-    else if (h === max + 1) s.hours.push(h);
-    else if (s.hours.length === 1 && h === min) state.sel = { date: null, hours: [] };
-    else if (h === min) s.hours.shift();
-    else if (h === max) s.hours.pop();
-    else state.sel = { date: dk, hours: [h] };
+  function isPicked(dk, h) { return !!state.picks[dk] && state.picks[dk].indexOf(h) > -1; }
+
+  /** Выбор → список промежутков: по дням, часы подряд */
+  function pickedRanges() {
+    var out = [];
+    Object.keys(state.picks).sort().forEach(function (d) {
+      var hs = state.picks[d].slice().sort(function (x, y) { return x - y; }), run = [];
+      hs.forEach(function (h) {
+        if (run.length && h !== run[run.length - 1] + 1) { out.push({ date: d, hours: run }); run = []; }
+        run.push(h);
+      });
+      if (run.length) out.push({ date: d, hours: run });
+    });
+    return out;
   }
+
+  function toggle(dk, h) {
+    var note = $('selNote'), blk = blockHours(h), cur = (state.picks[dk] || []).slice();
+    note.textContent = '';
+    if (isPicked(dk, h)) {
+      cur = cur.filter(function (x) { return blk.indexOf(x) < 0; });
+      if (cur.length) state.picks[dk] = cur; else delete state.picks[dk];
+      return;
+    }
+    var before = JSON.stringify(state.picks);
+    state.picks[dk] = cur.concat(blk).sort(function (x, y) { return x - y; });
+    var ranges = pickedRanges();
+    var tooLong = ranges.some(function (r) { return r.hours.length > CONFIG.maxHours; });
+    var tooMany = ranges.length > (CONFIG.maxRanges || 10);
+    if (tooLong || tooMany) {
+      state.picks = JSON.parse(before);
+      note.textContent = tooLong ? 'Подряд в один день можно взять не больше ' + CONFIG.maxHours + ' часов.'
+        : 'За одну бронь не больше ' + (CONFIG.maxRanges || 10) + ' промежутков.';
+    }
+  }
+
+  function clearPicks() { state.picks = {}; $('selNote').textContent = ''; render(); }
 
   // ---------- отрисовка календаря ----------
   function slotButton(dk, h, withPrice) {
-    var st = slotStatus(dk, h);
-    var selected = state.sel.date === dk && state.sel.hours.indexOf(h) > -1;
+    var st = blockStatus(dk, h), n = slotH();
+    var selected = isPicked(dk, h);
     var disabled = !selected && (st === 'busy' || st === 'past');
-    var p = priceOf(h), date = dateFromKey(dk);
-    var label = fmtLong.format(date) + ', ' + pad(h) + ':00, ' +
+    var p = blockPrice(h), date = dateFromKey(dk), range = pad(h) + ':00–' + pad(h + n) + ':00';
+    var label = fmtLong.format(date) + ', ' + range + ', ' +
       (st === 'busy' ? 'занято' : st === 'past' ? 'недоступно' : p + ' рублей' + (selected ? ', выбрано' : ', свободно'));
     var inner = withPrice
-      ? '<span>' + pad(h) + ':00</span><span class="p-val">' + (st === 'busy' ? 'занято' : st === 'past' ? '—' : money(p)) + '</span>'
-      : (st === 'busy' || st === 'past' ? '' : p);
+      ? '<span>' + range + '</span><span class="p-val">' + (st === 'busy' ? 'занято' : st === 'past' ? '—' : money(p)) + '</span>'
+      : (st === 'busy' || st === 'past' ? '' : num(p));
     return '<button type="button" class="slot ' + (selected ? 'sel' : st) + '" data-date="' + dk + '" data-hour="' + h + '"' +
       (disabled ? ' disabled' : '') + ' aria-label="' + label + '"' + (disabled ? '' : ' aria-pressed="' + selected + '"') + '>' + inner + '</button>';
   }
@@ -140,8 +181,8 @@
     days.forEach(function (d, i) {
       g += '<div class="wk-day' + (d === today ? ' today' : '') + '"><b>' + WD[i] + '</b><span>' + dateFromKey(d).getDate() + '</span></div>';
     });
-    for (var h = CONFIG.openHour; h < CONFIG.closeHour; h++) {
-      g += '<div class="wk-time">' + pad(h) + ':00</div>';
+    for (var h = CONFIG.openHour; h < CONFIG.closeHour; h += slotH()) {
+      g += '<div class="wk-time">' + pad(h) + '–' + pad(h + slotH()) + '</div>';
       days.forEach(function (d) { g += slotButton(d, h, false); });
     }
     $('weekGrid').innerHTML = g;
@@ -150,12 +191,12 @@
     var tabs = '';
     days.forEach(function (d, i) {
       var closed = d < today || daysBetween(today, d) > CONFIG.horizonDays;
-      tabs += '<button type="button" role="tab" class="daytab" data-day="' + d + '" aria-selected="' + (d === state.day) + '"' + (closed ? ' disabled' : '') +
+      tabs += '<button type="button" role="tab" class="daytab' + (state.picks[d] ? ' has-pick' : '') + '" data-day="' + d + '" aria-selected="' + (d === state.day) + '"' + (closed ? ' disabled' : '') +
         ' aria-label="' + fmtLong.format(dateFromKey(d)) + '"><b>' + WD[i] + '</b><span>' + dateFromKey(d).getDate() + '</span></button>';
     });
     $('dayTabs').innerHTML = tabs;
     var list = '';
-    for (var hh = CONFIG.openHour; hh < CONFIG.closeHour; hh++) list += slotButton(state.day, hh, true);
+    for (var hh = CONFIG.openHour; hh < CONFIG.closeHour; hh += slotH()) list += slotButton(state.day, hh, true);
     $('slotList').innerHTML = list;
 
     if (focusKey) {
@@ -170,18 +211,33 @@
   }
 
   function renderSummary() {
-    var s = state.sel, has = s.date && s.hours.length;
-    $('summaryEmpty').hidden = !!has;
+    var ranges = pickedRanges(), has = ranges.length > 0;
+    $('summaryEmpty').hidden = has;
     $('bookForm').hidden = !has;
     if (!has) return;
-    var t = totals(s.hours), min = s.hours[0], max = s.hours[s.hours.length - 1];
-    $('chosenDate').textContent = fmtLong.format(dateFromKey(s.date));
-    $('chosenTime').textContent = pad(min) + ':00–' + pad(max + 1) + ':00';
-    var lines = '';
-    if (t.nd) lines += '<li><span>' + t.nd + ' ' + plural(t.nd, ['час', 'часа', 'часов']) + ' × ' + money(CONFIG.priceDay) + '</span><span>' + money(t.nd * CONFIG.priceDay) + '</span></li>';
-    if (t.np) lines += '<li><span>' + t.np + ' ' + plural(t.np, ['час', 'часа', 'часов']) + ' × ' + money(CONFIG.pricePeak) + '</span><span>' + money(t.np * CONFIG.pricePeak) + '</span></li>';
+    var all = [], lines = '';
+    ranges.forEach(function (r) { all = all.concat(r.hours); });
+    var t = totals(all);
+    if (ranges.length === 1) {
+      var r0 = ranges[0], min = r0.hours[0], max = r0.hours[r0.hours.length - 1];
+      $('chosenDate').textContent = fmtLong.format(dateFromKey(r0.date));
+      $('chosenTime').textContent = pad(min) + ':00–' + pad(max + 1) + ':00';
+      if (t.nd) lines += '<li><span>' + t.nd + ' ' + plural(t.nd, ['час', 'часа', 'часов']) + ' × ' + money(CONFIG.priceDay) + '</span><span>' + money(t.nd * CONFIG.priceDay) + '</span></li>';
+      if (t.np) lines += '<li><span>' + t.np + ' ' + plural(t.np, ['час', 'часа', 'часов']) + ' × ' + money(CONFIG.pricePeak) + '</span><span>' + money(t.np * CONFIG.pricePeak) + '</span></li>';
+    } else {
+      var days = Object.keys(state.picks).length;
+      $('chosenDate').textContent = ranges.length + ' ' + plural(ranges.length, ['промежуток', 'промежутка', 'промежутков']) +
+        (days > 1 ? ' в ' + days + ' ' + plural(days, ['день', 'дня', 'дней']) : '');
+      $('chosenTime').textContent = all.length + ' ' + plural(all.length, ['час', 'часа', 'часов']);
+      ranges.forEach(function (r) {
+        var a = r.hours[0], z = r.hours[r.hours.length - 1];
+        lines += '<li class="range"><span>' + fmtShort.format(dateFromKey(r.date)) + ' · ' + pad(a) + ':00–' + pad(z + 1) + ':00</span><span>' + money(totals(r.hours).total) + '</span></li>';
+      });
+    }
+    lines += '<li class="clear-line"><button type="button" class="link-btn" id="clearPicks">Очистить выбор</button></li>';
     $('chosenLines').innerHTML = lines;
     $('chosenTotal').textContent = money(t.total);
+    $('clearPicks').onclick = clearPicks;
   }
 
   function render() { renderCalendar(); renderSummary(); }
@@ -227,7 +283,7 @@
       return;
     }
     if (err.status === 409) {
-      state.sel = { date: null, hours: [] };
+      state.picks = {};
       $('eForm').textContent = '';
       $('selNote').textContent = d.message || 'Это время только что заняли.';
       return loadWeek();
@@ -269,7 +325,7 @@
 
   function fillHead(r) {
     $('payTitle').textContent = 'Бронь ' + r.code + ' создана';
-    $('payWhen').textContent = r.dateLabel + ', ' + r.timeLabel + ' · ' + money(r.total);
+    $('payWhen').textContent = (r.whenLabel || (r.dateLabel + ', ' + r.timeLabel)) + ' · ' + money(r.total);
     $('payError').textContent = '';
   }
 
@@ -407,18 +463,18 @@
   function onSubmit(e) {
     e.preventDefault();
     if (!validate()) return;
-    var s = state.sel, btn = $('submitBtn'), email = $('fEmail').value.trim();
+    var ranges = pickedRanges(), btn = $('submitBtn'), email = $('fEmail').value.trim();
     btn.disabled = true; btn.textContent = 'Отправляем…';
     api('/api/book', {
       method: 'POST',
       body: {
-        date: s.date, hours: s.hours.slice(),
+        ranges: ranges,
         name: $('fName').value.trim(), phone: $('fPhone').value.trim(), email: email,
         purpose: $('fPurpose').value, people: $('fPeople').value ? Number($('fPeople').value) : null,
         note: $('fNote').value.trim(), consent: $('fConsent').checked, website: $('fWebsite').value,
       },
     }).then(function (r) {
-      state.sel = { date: null, hours: [] };
+      state.picks = {};
       $('bookForm').reset();
       $('selNote').textContent = '';
       if (r.payment) openWidget(r, email);
@@ -449,18 +505,230 @@
   }
 
   // ---------- украшения ----------
+  // ---------- слайдеры: активный кадр по центру, листаются в обе стороны ----------
+  // ширина окна без полосы прокрутки, чтобы слайдер на всю ширину был ровно по центру
+  function setViewportVar() { document.documentElement.style.setProperty('--vw', document.documentElement.clientWidth + 'px'); }
+
+  function setupSliders() {
+    setViewportVar();
+    window.addEventListener('resize', setViewportVar);
+    document.querySelectorAll('[data-slider]').forEach(function (track) {
+      var slides = Array.prototype.slice.call(track.children);
+      var count = track.getAttribute('data-count') ? $(track.getAttribute('data-count')) : null;
+      if (!slides.length) return;
+      var idx = 0;
+
+      function current() {
+        var mid = track.getBoundingClientRect().left + track.clientWidth / 2, best = 0, dist = Infinity;
+        slides.forEach(function (sl, i) {
+          var r = sl.getBoundingClientRect(), d = Math.abs(r.left + r.width / 2 - mid);
+          if (d < dist) { dist = d; best = i; }
+        });
+        return best;
+      }
+      function go(i, instant) {
+        i = (i + slides.length) % slides.length;
+        idx = i;
+        var sl = slides[i];
+        track.scrollTo({ left: sl.offsetLeft + sl.offsetWidth / 2 - track.clientWidth / 2, behavior: instant ? 'auto' : 'smooth' });
+      }
+      function mark() {
+        var i = idx = current();
+        slides.forEach(function (sl, j) { sl.classList.toggle('is-active', j === i); });
+        if (count) count.textContent = (i + 1) + ' / ' + slides.length;
+      }
+
+      document.querySelectorAll('[data-nav="' + track.id + '"]').forEach(function (b) {
+        b.addEventListener('click', function () { go(idx + Number(b.getAttribute('data-dir'))); });
+      });
+      track.addEventListener('keydown', function (e) {
+        if (e.key === 'ArrowRight') { e.preventDefault(); go(idx + 1); }
+        if (e.key === 'ArrowLeft') { e.preventDefault(); go(idx - 1); }
+      });
+      var t = null;
+      track.addEventListener('scroll', function () { clearTimeout(t); t = setTimeout(mark, 60); }, { passive: true });
+
+      // мышью можно тянуть ленту, как пальцем на телефоне
+      var down = null, moved = false;
+      track.addEventListener('pointerdown', function (e) {
+        if (e.pointerType !== 'mouse') return;
+        down = { x: e.clientX, left: track.scrollLeft }; moved = false;
+        track.style.scrollSnapType = 'none';
+      });
+      window.addEventListener('pointermove', function (e) {
+        if (!down) return;
+        var dx = e.clientX - down.x;
+        if (Math.abs(dx) > 5) moved = true;
+        track.scrollLeft = down.left - dx;
+      });
+      window.addEventListener('pointerup', function () {
+        if (!down) return;
+        down = null; track.style.scrollSnapType = '';
+        if (moved) go(current());
+      });
+      // после перетаскивания клик не должен открывать фото
+      track.addEventListener('click', function (e) { if (moved) { e.stopPropagation(); e.preventDefault(); moved = false; } }, true);
+      track.addEventListener('dragstart', function (e) { e.preventDefault(); });
+
+      // стартуем с середины: соседние кадры видны и слева, и справа
+      requestAnimationFrame(function () { go(Math.floor(slides.length / 2), true); mark(); });
+      window.addEventListener('resize', function () { go(current(), true); });
+    });
+  }
+
+  // ---------- просмотр фото на весь экран, с листанием ----------
+  function setupLightbox() {
+    var box = $('lightbox'); if (!box || !box.showModal) return;
+    var img = document.createElement('img'), list = [], pos = 0, opener = null;
+    img.id = 'lbImg'; img.alt = '';
+    $('lbFigure').insertBefore(img, $('lbFigure').firstChild);
+
+    var all = Array.prototype.slice.call(document.querySelectorAll('img[data-zoom]'));
+    all.forEach(function (el) {
+      el.setAttribute('tabindex', '0');
+      el.setAttribute('role', 'button');
+      el.setAttribute('aria-label', 'Открыть фото: ' + (el.alt || 'фото'));
+      el.addEventListener('click', function () { open(el); });
+      el.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(el); } });
+    });
+
+    function group(name) {
+      // одно и то же фото может стоять на странице дважды: в листании оставляем его один раз
+      var seen = {};
+      return all.filter(function (el) {
+        var src = el.getAttribute('data-full') || el.src;
+        if (el.getAttribute('data-zoom') !== name || seen[src]) return false;
+        seen[src] = true; return true;
+      });
+    }
+    function show(i) {
+      pos = (i + list.length) % list.length;
+      var el = list[pos];
+      img.src = el.getAttribute('data-full') || el.currentSrc || el.src;
+      img.alt = el.alt;
+      $('lbCap').textContent = el.alt;
+      $('lbCount').textContent = list.length > 1 ? (pos + 1) + ' / ' + list.length : '';
+      $('lbPrev').hidden = $('lbNext').hidden = list.length < 2;
+      // соседние фото подгружаем заранее, чтобы листание было без задержки
+      [pos + 1, pos - 1].forEach(function (j) { var n = list[(j + list.length) % list.length]; (new Image()).src = n.getAttribute('data-full') || n.src; });
+    }
+    function open(el) {
+      list = group(el.getAttribute('data-zoom'));
+      var src = el.getAttribute('data-full') || el.src;
+      var i = list.findIndex(function (x) { return (x.getAttribute('data-full') || x.src) === src; });
+      opener = el;
+      show(i < 0 ? 0 : i);
+      box.showModal();
+    }
+    function close() { box.close(); }
+
+    $('lbPrev').addEventListener('click', function () { show(pos - 1); });
+    $('lbNext').addEventListener('click', function () { show(pos + 1); });
+    $('lbClose').addEventListener('click', close);
+    box.addEventListener('close', function () { img.removeAttribute('src'); if (opener) opener.focus(); });
+    // клик по тёмному фону закрывает
+    box.addEventListener('click', function (e) { if (e.target === box || e.target.classList.contains('lb-figure')) close(); });
+    box.addEventListener('keydown', function (e) {
+      if (e.key === 'ArrowRight') show(pos + 1);
+      if (e.key === 'ArrowLeft') show(pos - 1);
+    });
+    // листание пальцем
+    var x0 = null, y0 = null;
+    box.addEventListener('touchstart', function (e) { x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; }, { passive: true });
+    box.addEventListener('touchend', function (e) {
+      if (x0 === null) return;
+      var dx = e.changedTouches[0].clientX - x0, dy = e.changedTouches[0].clientY - y0;
+      if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) show(pos + (dx < 0 ? 1 : -1));
+      else if (dy > 90 && Math.abs(dy) > Math.abs(dx)) close();   // смахнуть вниз — закрыть
+      x0 = y0 = null;
+    }, { passive: true });
+  }
+
+  // ---------- хореография появления при прокрутке ----------
+  // [что, как появляется, канон: соседи по группе выходят по очереди]
+  var CHOREO = [
+    ['main h2', 'stretch'],
+    ['.section-lead, .hall-head p', 'rise'],
+    ['#hallSlider, .slider-nav', 'rise'],
+    ['.how-a', 'left'],
+    ['.how-b', 'right'],
+    ['.steps li', 'rise', true],
+    ['.tariff-day', 'left'],
+    ['.tariff-peak', 'right'],
+    ['.timeline', 'rise'],
+    ['#moodSlider .tile', 'rise', true],
+    ['.cal-card', 'rise'],
+    ['.summary', 'right'],
+    ['.rules > div:not(.rules-photos) h3', 'rise'],
+    ['.rules .ticks li', 'left', true],
+    ['.rules-photos img', 'curtain', true],
+    ['.contact-line', 'left', true],
+    ['.map-live', 'right'],
+    ['.foot', 'rise'],
+  ];
+
   function setupReveal() {
-    var items = document.querySelectorAll('.reveal');
     var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var items = [];
+    CHOREO.forEach(function (step) {
+      var els = document.querySelectorAll(step[0]);
+      els.forEach(function (el) {
+        if (el.hasAttribute('data-reveal')) return;
+        el.setAttribute('data-reveal', step[1]);
+        if (step[2]) {
+          // номер среди соседей по группе (не больше 6 счетов, чтобы длинные списки не тянулись)
+          var sibs = Array.prototype.filter.call(el.parentNode.children, function (x) { return x.matches(step[0]); });
+          el.style.setProperty('--i', Math.min(sibs.indexOf(el), 6));
+        }
+        items.push(el);
+      });
+    });
     if (reduce || !('IntersectionObserver' in window)) { items.forEach(function (i) { i.classList.add('in'); }); return; }
+    // фото под «занавесом» обрезано целиком, и браузер считает его невидимым: следим за его контейнером
+    var targets = new Map();
+    items.forEach(function (el) {
+      var t = el.getAttribute('data-reveal') === 'curtain' ? el.parentElement : el;
+      if (!targets.has(t)) targets.set(t, []);
+      targets.get(t).push(el);
+    });
     var io = new IntersectionObserver(function (entries) {
-      entries.forEach(function (en) { if (en.isIntersecting) { en.target.classList.add('in'); io.unobserve(en.target); } });
-    }, { threshold: 0.12 });
-    items.forEach(function (i) { io.observe(i); });
+      entries.forEach(function (en) {
+        if (!en.isIntersecting) return;
+        targets.get(en.target).forEach(function (el) { el.classList.add('in'); });
+        io.unobserve(en.target);
+      });
+    }, { threshold: 0.15, rootMargin: '0px 0px -6% 0px' });
+    targets.forEach(function (_, t) { io.observe(t); });
+  }
+
+  // ---------- наверх: логотип и кнопка на телефоне ----------
+  function setupToTop() {
+    var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var up = function (e) {
+      if (e) e.preventDefault();
+      window.scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' });
+      if (history.replaceState) history.replaceState(null, '', location.pathname + location.search);
+    };
+    var brand = document.querySelector('.brand');
+    if (brand) brand.addEventListener('click', up);
+    var btn = $('toTop'); if (!btn) return;
+    btn.addEventListener('click', function (e) { up(e); btn.blur(); });
+    var ticking = false;
+    var check = function () {
+      ticking = false;
+      var show = window.scrollY > window.innerHeight * 1.1;
+      btn.classList.toggle('show', show);
+      btn.tabIndex = show ? 0 : -1;
+    };
+    window.addEventListener('scroll', function () { if (!ticking) { ticking = true; requestAnimationFrame(check); } }, { passive: true });
+    check();
   }
 
   // ---------- запуск ----------
   setupReveal();
+  setupSliders();
+  setupLightbox();
+  setupToTop();
 
   function bind() {
     $('weekGrid').addEventListener('click', onSlotClick);

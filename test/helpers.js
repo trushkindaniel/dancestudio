@@ -10,7 +10,7 @@ const NOW = new Date('2026-11-09T07:00:00Z');
 // По умолчанию оплата переводом (старые тесты). Для онлайн-оплаты: makeEnv({ PAYMENT_PROVIDER: 'fake' })
 function makeEnv(extra = {}) {
   // Часы в тестах заданы по Москве (NOW = 10:00 МСК), поэтому пояс фиксируем явно
-  const cfg = buildConfig({ CALENDAR_DRIVER: 'memory', PAYMENT_PROVIDER: 'transfer', STUDIO_TZ: 'Europe/Moscow', ...extra });
+  const cfg = buildConfig({ CALENDAR_DRIVER: 'memory', PAYMENT_PROVIDER: 'transfer', STUDIO_TZ: 'Europe/Moscow', SLOT_HOURS: '1', ...extra });
   const payments = cfg.payment.provider === 'fake' ? createFakePayments(cfg) : null;
   const calendar = createMemoryCalendar();
   const sent = [];

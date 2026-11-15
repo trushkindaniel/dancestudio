@@ -8,7 +8,7 @@ const { validateBooking } = require('../server/validate');
 const { NOW, valid } = require('./helpers');
 
 // часы в тестах по Москве (NOW = 10:00 МСК)
-const cfg = buildConfig({ STUDIO_TZ: 'Europe/Moscow' });
+const cfg = buildConfig({ STUDIO_TZ: 'Europe/Moscow', SLOT_HOURS: '1' });
 
 test('цена: день 800, вечер 1000, граница 17:00 считается по часам', () => {
   assert.deepEqual(priceFor([10, 11], cfg), { dayHours: 2, peakHours: 0, total: 1600 });

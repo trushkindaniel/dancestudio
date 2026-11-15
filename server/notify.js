@@ -1,11 +1,18 @@
 'use strict';
-/* Уведомления: письмо клиенту (SMTP) и сообщение администратору в Telegram.
-   Если ничего не настроено, пишем в консоль. Сбой уведомления не ломает бронь. */
+/* Уведомления.
+   Почта (SMTP, nodemailer): клиенту — бронь создана / оплачена с инструкцией / снята / возврат;
+   администратору — «оплата прошла» и новая бронь.
+   Telegram: короткие сообщения администратору.
+   Если почта или Telegram не настроены, сообщения печатаются в консоль. Сбой уведомления не ломает бронь. */
+const { templates } = require('./mail');
 
+/**
+ * @param deps.transport  объект с sendMail(opts) — для тестов и предпросмотра; иначе создаётся SMTP-транспорт
+ */
 function createNotifier(cfg, deps = {}) {
   const log = deps.log || console;
   const fetchFn = deps.fetch || fetch;
-  let transport = null;
+  let transport = deps.transport || null;
 
   function getTransport() {
     if (transport !== null) return transport;
@@ -26,13 +33,20 @@ function createNotifier(cfg, deps = {}) {
     return transport;
   }
 
-  async function mail(to, subject, text) {
+  /** Отправляет письмо по шаблону. Возвращает true, если ушло через SMTP. */
+  async function send(to, msg) {
+    if (!to) return false;
     try {
       const t = getTransport();
-      if (!t) { log.log(`[mail:dev] → ${to}\n  ${subject}\n  ${text.replace(/\n/g, '\n  ')}`); return; }
-      await t.sendMail({ from: cfg.smtp.from, to, subject, text });
+      if (!t) {
+        log.log(`[mail:dev] → ${to}\n  ${msg.subject}\n  ${msg.text.replace(/\n/g, '\n  ')}${msg.attachments ? `\n  [вложение: ${msg.attachments.map((a) => a.filename).join(', ')}]` : ''}`);
+        return false;
+      }
+      await t.sendMail({ from: cfg.smtp.from, to, subject: msg.subject, text: msg.text, html: msg.html, attachments: msg.attachments });
+      return true;
     } catch (e) {
-      log.error('[mail] не удалось отправить письмо:', e.message);
+      log.error(`[mail] не удалось отправить «${msg.subject}» на ${to}:`, e.message);
+      return false;
     }
   }
 
@@ -51,79 +65,39 @@ function createNotifier(cfg, deps = {}) {
     }
   }
 
-  async function adminMail(subject, text) {
-    if (cfg.adminEmail) await mail(cfg.adminEmail, subject, text);
-  }
+  const when = (b) => (Array.isArray(b.ranges) && b.ranges.length ? b.ranges.map((r) => `${r.dateLabel}, ${r.timeLabel}`).join('; ') : `${b.dateLabel}, ${b.timeLabel}`);
+  const extra = (b) => [b.purpose, b.people ? `${b.people} чел.` : ''].filter(Boolean).join(', ');
 
   return {
     async created(b) {
-      const when = `${b.dateLabel}, ${b.timeLabel}`;
-      const howToPay = b.online
-        ? `Оплатите бронь в форме ЮKassa на сайте (она открылась после нажатия «Забронировать»).
-` +
-          `Слот держится до ${b.deadlineLabel}, потом освободится автоматически.
-Как только оплата пройдёт, мы пришлём письмо с подтверждением.`
-        : `Переведите сумму по реквизитам:
-  Получатель: ${cfg.requisites.recipient}
-  Счёт: ${cfg.requisites.account}
-  Банк: ${cfg.requisites.bank}
-` +
-          `  Назначение: Аренда зала, бронь ${b.code}
-
-Слот держится до ${b.deadlineLabel}, потом освободится автоматически.
-` +
-          `Когда администратор подтвердит оплату, мы пришлём ещё одно письмо.`;
       await Promise.all([
-        mail(b.email, `Бронь ${b.code}: ${when}`,
-          `Здравствуйте, ${b.name}!
-
-Бронь ${b.code} создана: ${when}.
-К оплате: ${b.total} ₽.
-
-${howToPay}
-
-${cfg.studioName}`),
-        telegramAdmin(`Новая бронь ${b.code}
-${when}
-${b.name}, ${b.phone}
-Сумма ${b.total} ₽
-` +
-          (b.purpose || b.people ? `${[b.purpose, b.people ? `${b.people} чел.` : ''].filter(Boolean).join(', ')}\n` : '') +
+        send(b.email, templates.clientCreated(cfg, b)),
+        telegramAdmin(`Новая бронь ${b.code}\n${when(b)}\n${b.name}, ${b.phone}\nСумма ${b.total} ₽\n` +
+          (extra(b) ? `${extra(b)}\n` : '') +
           (b.online ? 'Ждём оплату через ЮKassa, подтвердится само.' : 'Как подтвердить: покрасьте событие в календаре в зелёный.')),
-        adminMail(`Новая бронь ${b.code}`, `${when}
-${b.name}, ${b.phone}, ${b.email}
-Сумма ${b.total} ₽`),
       ]);
     },
     async paid(b) {
       await Promise.all([
-        mail(b.email, `Оплата брони ${b.code} подтверждена`,
-          `Здравствуйте, ${b.name}!\n\nОплата получена. Ждём вас: ${b.dateLabel}, ${b.timeLabel}.\n\n${cfg.studioName}`),
-        telegramAdmin(`Оплачена бронь ${b.code}: ${b.dateLabel}, ${b.timeLabel}, ${b.name}, ${b.total} ₽.`),
+        send(b.email, templates.clientPaid(cfg, b)),
+        send(cfg.adminEmail, templates.adminPaid(cfg, b)),
+        telegramAdmin(`Оплачена бронь ${b.code}: ${when(b)}, ${b.name}, ${b.phone}, ${b.total} ₽.${extra(b) ? ' ' + extra(b) + '.' : ''}`),
       ]);
     },
     async refunded(b) {
       await Promise.all([
-        b.email ? mail(b.email, `Возврат оплаты за бронь ${b.code}`,
-          `Здравствуйте!\n\nОплата за бронь ${b.code} пришла после того, как бронь была снята, поэтому мы вернули ${b.total} ₽.\n` +
-          `Деньги вернутся тем же способом, обычно за несколько дней. Чтобы записаться снова, выберите время на сайте.\n\n${cfg.studioName}`) : null,
+        b.email ? send(b.email, templates.clientRefunded(cfg, b)) : null,
         telegramAdmin(`Возврат ${b.total} ₽ по брони ${b.code}: оплата пришла после снятия брони (${b.date}, часы ${b.hours}).`),
       ]);
     },
     async expired(b) {
-      const failed = b.reason === 'payment_canceled';
       await Promise.all([
-        mail(b.email, `Бронь ${b.code} снята`,
-          `Здравствуйте, ${b.name}!\n\n` +
-          (failed
-            ? `Оплата за бронь ${b.code} (${b.dateLabel}, ${b.timeLabel}) не прошла, слот освобождён.\nЧтобы записаться, оформите бронь заново на сайте.`
-            : `Оплата за бронь ${b.code} (${b.dateLabel}, ${b.timeLabel}) не поступила в срок, слот освобождён.\nЕсли вы уже оплатили, напишите нам. Если нет, оформите бронь заново на сайте.`) +
-          `\n\n${cfg.studioName}`),
-        telegramAdmin(`Бронь ${b.code} снята: ${failed ? 'оплата не прошла' : 'нет оплаты в срок'} (${b.dateLabel}, ${b.timeLabel}).`),
+        send(b.email, templates.clientExpired(cfg, b)),
+        telegramAdmin(`Бронь ${b.code} снята: ${b.reason === 'payment_canceled' ? 'оплата не прошла' : 'нет оплаты в срок'} (${when(b)}).`),
       ]);
     },
     async cancelled(b) {
-      await telegramAdmin(`Клиент отменил бронь ${b.code} (${b.dateLabel}, ${b.timeLabel}).`);
+      await telegramAdmin(`Клиент отменил бронь ${b.code} (${when(b)}).`);
     },
   };
 }

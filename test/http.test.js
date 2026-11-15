@@ -86,7 +86,7 @@ test('сайт: главная отдаётся, 404 со своей стран�
   const home = await fetch(s.base + '/');
   assert.equal(home.status, 200);
   assert.match(home.headers.get('content-type'), /text\/html/);
-  assert.match(await home.text(), /Пульс/);
+  assert.match(await home.text(), /I love stretch/);
   const nf = await fetch(s.base + '/net-takoj-stranicy');
   assert.equal(nf.status, 404);
   assert.match(await nf.text(), /Такой страницы нет/);
