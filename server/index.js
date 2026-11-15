@@ -60,6 +60,7 @@ async function main() {
   server.listen(cfg.port, () => {
     if (onSocket) fs.chmodSync(cfg.port, 0o666); // веб-сервер хостинга должен достучаться до сокета
     console.log(`Сайт: ${cfg.baseUrl.replace(/\/$/, '')}  (порт ${cfg.port}, календарь: ${cfg.calendarDriver}, оплата: ${cfg.payment.provider})`);
+    if (process.send) process.send('ready'); // pm2 --wait-ready ждёт этого сигнала
   });
 
   const stop = () => { clearInterval(timer); server.close(() => process.exit(0)); setTimeout(() => process.exit(0), 3000).unref(); };
