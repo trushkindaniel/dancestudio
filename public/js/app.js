@@ -368,10 +368,10 @@
     $('payWidget').innerHTML = '';
   }
 
-  // цвета формы под тёмную тему сайта (ЮKassa принимает только HEX)
+  // цвета формы под светлую тему сайта (ЮKassa принимает только HEX)
   var WIDGET_COLORS = {
-    control_primary: '#E3AFBA', control_primary_content: '#1A120E', background: '#1F1814',
-    text: '#F4EAE0', border: '#44362C', control_secondary: '#2A211B',
+    control_primary: '#9C5A6A', control_primary_content: '#FFFFFF', background: '#FFFBF7',
+    text: '#2A211B', border: '#E3D5C8', control_secondary: '#F4EBE2',
   };
   var WIDGET_ERRORS = {
     token_expired: 'Время на оплату вышло. Оформите бронь заново.',

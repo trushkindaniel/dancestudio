@@ -6,24 +6,28 @@
    ========================================================== */
 
 :root {
-  /* поверхности: тёплый почти чёрный, как стены студии в полумраке */
-  --bg: #120e0c;
-  --bg-2: #18120f;
-  --surface: #1f1814;
-  --surface-2: #2a211b;
-  --line: #44362c;
-  --line-soft: #2e241e;
+  /* поверхности: светлый тёплый крем, как стены зала днём */
+  --bg: #f8f2eb;
+  --bg-2: #f2e9df;
+  --surface: #fffbf7;
+  --surface-2: #f4ebe2;
+  --line: #e3d5c8;
+  --line-soft: #ede3d9;
 
   /* текст */
-  --text: #f4eae0;              /* шампань */
-  --muted: #b9a797;
-  --ink: #1a120e;               /* тёмный текст на светлых заливках */
+  --text: #2a211b;              /* эспрессо */
+  --muted: #76675a;
+  --ink: #ffffff;               /* текст на акцентных заливках */
 
   /* акценты (имена переменных прежние, чтобы не трогать весь CSS) */
-  --violet: #e3afba;            /* пыльная роза: заголовки, главная кнопка, дневной тариф */
-  --violet-deep: #b0707f;
-  --spark: #e8b27c;             /* янтарь: искры, вечерний тариф */
-  --danger: #ff9a9a;
+  --violet: #9c5a6a;            /* пыльная роза, глубже — чтобы читалась на светлом */
+  --violet-deep: #7d4454;
+  --spark: #b5793f;             /* янтарь */
+  --danger: #b4323c;
+
+  /* «тёмный остров»: текст поверх фотографий и в просмотре фото */
+  --on-photo: #f8efe6;
+  --on-photo-muted: #d9c9ba;
 
   /* тарифы в календаре */
   --day: var(--violet);
@@ -79,12 +83,12 @@ code { background: var(--surface-2); padding: 1px 6px; border-radius: 6px; font-
   border-radius: 999px; font-weight: 700; font-size: 16px; text-decoration: none;
   transition: transform .2s var(--ease), background-color .2s, color .2s, border-color .2s, box-shadow .2s;
 }
-.btn:hover { transform: translateY(-2px); background: #eec5cd; border-color: #eec5cd; box-shadow: 0 10px 24px -10px rgba(0, 0, 0, .6); }
+.btn:hover { transform: translateY(-2px); background: var(--violet-deep); border-color: var(--violet-deep); box-shadow: 0 10px 24px -12px rgba(125, 68, 84, .55); }
 .btn:active { transform: translateY(0); }
 .btn:disabled { opacity: .5; cursor: not-allowed; transform: none; box-shadow: none; }
 /* контурная кнопка с двойной рамкой, как на референсе */
 .btn-ghost { background: transparent; color: var(--violet); box-shadow: 0 0 0 4px var(--bg), 0 0 0 5px var(--line); }
-.btn-ghost:hover { background: rgba(227, 175, 186, .12); color: var(--text); border-color: var(--violet); box-shadow: 0 0 0 4px var(--bg), 0 0 0 5px var(--violet); }
+.btn-ghost:hover { background: rgba(156, 90, 106, .08); color: var(--text); border-color: var(--violet); box-shadow: 0 0 0 4px var(--bg), 0 0 0 5px var(--violet); }
 .btn-sm { min-height: 44px; padding: 0 22px; font-size: 15px; }
 .btn-block { width: 100%; }
 .icon-btn {
@@ -101,7 +105,7 @@ code { background: var(--surface-2); padding: 1px 6px; border-radius: 6px; font-
   max-width: var(--maxw); margin: 12px auto 0; padding: 8px 12px 8px 22px;
   width: calc(100% - 2 * var(--gutter));
   display: flex; align-items: center; justify-content: space-between; gap: 16px;
-  background: rgba(18, 14, 12, .88); border: 1px solid var(--line);
+  background: rgba(252, 248, 243, .86); border: 1px solid var(--line); box-shadow: 0 10px 30px -22px rgba(70, 45, 30, .35);
   border-radius: 999px; backdrop-filter: blur(10px);
 }
 .brand { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; font-family: var(--font-hero); font-weight: 500; font-size: 15px; letter-spacing: .22em; text-transform: uppercase; color: var(--violet); }
@@ -133,9 +137,9 @@ h3 { font-family: var(--font-body); font-weight: 700; font-size: 18px; line-heig
 .hero-photo { width: 100%; height: 100%; object-fit: cover; object-position: 50% 42%; }
 .hero-media::after { content: ""; position: absolute; inset: 0;
   background:
-    linear-gradient(90deg, var(--bg) 0%, rgba(18, 14, 12, .72) 18%, rgba(18, 14, 12, 0) 46%),
-    linear-gradient(0deg, var(--bg) 0%, rgba(18, 14, 12, 0) 26%),
-    linear-gradient(180deg, rgba(18, 14, 12, .65) 0%, rgba(18, 14, 12, 0) 18%); }
+    linear-gradient(90deg, var(--bg) 0%, rgba(248, 242, 235, .78) 16%, rgba(248, 242, 235, 0) 44%),
+    linear-gradient(0deg, var(--bg) 0%, rgba(248, 242, 235, 0) 24%),
+    linear-gradient(180deg, rgba(248, 242, 235, .7) 0%, rgba(248, 242, 235, 0) 16%); }
 .hero-inner { width: 100%; max-width: var(--maxw); margin: 0 auto; padding: 150px var(--gutter) clamp(40px, 6vw, 72px);
   display: grid; grid-template-columns: minmax(0, 600px) 1fr; gap: 32px; align-items: end; }
 .hero-text { position: relative; }
@@ -163,7 +167,7 @@ h3 { font-family: var(--font-body); font-weight: 700; font-size: 18px; line-heig
 
 /* карточка с настоящим фото зала: честно показываем, куда клиент придёт */
 .hero-real { justify-self: end; width: clamp(220px, 21vw, 270px); margin: 0; border-radius: var(--r-md); overflow: hidden;
-  border: 1px solid rgba(244, 234, 224, .22); background: var(--surface); box-shadow: 0 24px 60px -24px rgba(0, 0, 0, .8); }
+  border: 1px solid var(--line); background: var(--surface); box-shadow: 0 24px 60px -24px rgba(70, 45, 30, .35); }
 .hero-real img { width: 100%; height: auto; aspect-ratio: 4 / 3; object-fit: cover; }
 .hero-real figcaption { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 12px 16px; }
 .hero-real b { font-family: var(--font-serif); font-weight: 600; font-size: 22px; color: var(--text); }
@@ -210,9 +214,9 @@ h3 { font-family: var(--font-body); font-weight: 700; font-size: 18px; line-heig
 .how h2 { text-align: left; }
 .how h2::before { margin-left: 0; }
 .how-photos { position: relative; aspect-ratio: 4 / 5; }
-.how-photos img { position: absolute; height: auto; object-fit: cover; border-radius: var(--r-lg); border: 1px solid var(--line); box-shadow: 0 24px 60px -28px rgba(0, 0, 0, .9); }
+.how-photos img { position: absolute; height: auto; object-fit: cover; border-radius: var(--r-lg); border: 1px solid var(--line); box-shadow: 0 24px 60px -28px rgba(70, 45, 30, .28); }
 .how-a { left: 0; top: 0; width: 70%; aspect-ratio: 2 / 3; }
-.how-b { right: 0; bottom: 0; width: 48%; aspect-ratio: 1; box-shadow: 0 0 0 6px var(--bg), 0 24px 60px -28px rgba(0, 0, 0, .9); }
+.how-b { right: 0; bottom: 0; width: 48%; aspect-ratio: 1; box-shadow: 0 0 0 6px var(--bg), 0 24px 60px -28px rgba(70, 45, 30, .28); }
 .steps { display: grid; gap: 4px; margin-top: 32px; }
 .steps li { display: grid; grid-template-columns: 64px 1fr; gap: 20px; align-items: center; padding: 16px 0; border-top: 1px solid var(--line-soft); }
 .num { display: grid; place-items: center; width: 56px; height: 56px; border-radius: 50%; border: 1px solid var(--line); font-family: var(--font-serif); font-weight: 600; font-size: 28px; line-height: 1; color: var(--violet); }
@@ -225,7 +229,7 @@ h3 { font-family: var(--font-body); font-weight: 700; font-size: 18px; line-heig
 .tariff:hover { transform: translateY(-4px); }
 .tariff-day { border-color: color-mix(in srgb, var(--violet) 55%, transparent); background: radial-gradient(80% 70% at 50% 0%, rgba(227, 175, 186, .16), transparent 70%), var(--surface); }
 .tariff-peak { border-color: color-mix(in srgb, var(--spark) 55%, transparent); background: radial-gradient(80% 70% at 50% 0%, rgba(232, 178, 124, .15), transparent 70%), var(--surface); }
-.tariff-day:hover, .tariff-peak:hover { box-shadow: 0 18px 40px -18px rgba(0, 0, 0, .7); }
+.tariff-day:hover, .tariff-peak:hover { box-shadow: 0 18px 40px -18px rgba(70, 45, 30, .28); }
 .tariff-name { align-self: center; padding: 8px 18px; border-radius: 999px; border: 1px solid currentColor; background: rgba(18, 14, 12, .72);
   font-weight: 700; letter-spacing: .22em; text-transform: uppercase; font-size: 15px; line-height: 1; text-shadow: 0 1px 12px rgba(0, 0, 0, .6); }
 .tariff-day .tariff-name { color: #f5c6d0; }
@@ -267,12 +271,12 @@ h3 { font-family: var(--font-body); font-weight: 700; font-size: 18px; line-heig
   font-variant-numeric: tabular-nums; display: flex; align-items: center; justify-content: center; gap: 6px;
   transition: transform .15s var(--ease), background-color .15s, border-color .15s, color .15s;
 }
-.slot.day { background: rgba(227, 175, 186, .1); border-color: rgba(227, 175, 186, .45); color: var(--violet); }
-.slot.peak { background: rgba(232, 178, 124, .1); border-color: rgba(232, 178, 124, .45); color: var(--spark); }
+.slot.day { background: rgba(156, 90, 106, .07); border-color: rgba(156, 90, 106, .35); color: var(--violet); }
+.slot.peak { background: rgba(181, 121, 63, .1); border-color: rgba(181, 121, 63, .45); color: #8f5a28; }
 .slot.day:hover, .slot.peak:hover { transform: translateY(-2px); }
-.slot.day:hover { background: rgba(227, 175, 186, .24); border-color: var(--violet); }
-.slot.peak:hover { background: rgba(232, 178, 124, .24); border-color: var(--spark); }
-.slot.sel { background: var(--text); border-color: var(--text); color: var(--ink); }
+.slot.day:hover { background: rgba(156, 90, 106, .16); border-color: var(--violet); }
+.slot.peak:hover { background: rgba(181, 121, 63, .2); border-color: var(--spark); }
+.slot.sel { background: var(--violet); border-color: var(--violet); color: var(--ink); }
 .slot.sel::before { content: "✓"; font-weight: 800; }
 .slot.busy, .slot.past {
   background: repeating-linear-gradient(135deg, var(--surface-2) 0 5px, var(--surface) 5px 10px);
@@ -296,10 +300,10 @@ h3 { font-family: var(--font-body); font-weight: 700; font-size: 18px; line-heig
 .legend { display: flex; flex-wrap: wrap; gap: 8px 20px; margin-top: 20px; color: var(--muted); font-size: 14px; }
 .legend li { display: flex; align-items: center; gap: 8px; }
 .lg { width: 18px; height: 18px; border-radius: 6px; border: 1px solid; display: inline-block; }
-.lg-day { background: rgba(227, 175, 186, .25); border-color: var(--violet); }
-.lg-peak { background: rgba(232, 178, 124, .25); border-color: var(--spark); }
+.lg-day { background: rgba(156, 90, 106, .12); border-color: var(--violet); }
+.lg-peak { background: rgba(181, 121, 63, .16); border-color: var(--spark); }
 .lg-busy { background: repeating-linear-gradient(135deg, var(--surface-2) 0 3px, var(--surface) 3px 6px); border-color: var(--line); }
-.lg-sel { background: var(--text); border-color: var(--text); }
+.lg-sel { background: var(--violet); border-color: var(--violet); }
 
 /* ---------- сводка и форма ---------- */
 .summary-photo { width: 100%; height: 220px; object-fit: cover; object-position: 50% 30%; border-radius: var(--r-md); border: 1px solid var(--line); margin-bottom: 16px; }
@@ -453,7 +457,7 @@ dialog::backdrop { background: rgba(8, 6, 11, .8); }
   .hero { display: block; min-height: 0; }
   .hero-media { position: relative; width: 100%; height: min(64svh, 560px); }
   .hero-photo { object-position: 50% 30%; }
-  .hero-media::after { background: linear-gradient(0deg, var(--bg) 0%, rgba(18, 14, 12, 0) 40%), linear-gradient(180deg, rgba(18, 14, 12, .6) 0%, rgba(18, 14, 12, 0) 22%); }
+  .hero-media::after { background: linear-gradient(0deg, var(--bg) 0%, rgba(248, 242, 235, 0) 42%), linear-gradient(180deg, rgba(248, 242, 235, .65) 0%, rgba(248, 242, 235, 0) 20%); }
   .hero-inner { grid-template-columns: 1fr; padding-top: 0; margin-top: -120px; position: relative; }
   .hero-real { justify-self: stretch; width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); align-items: stretch; }
   .hero-real img { height: 100%; min-height: 96px; aspect-ratio: auto; }
@@ -572,8 +576,8 @@ main, .foot { overflow-x: clip; }
   .to-top {
     position: fixed; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom)); z-index: 30;
     display: grid; place-items: center; width: 48px; height: 48px; padding: 0; border-radius: 50%;
-    border: 1px solid var(--line); background: rgba(31, 24, 20, .88); color: var(--violet);
-    backdrop-filter: blur(8px); box-shadow: 0 10px 28px -12px rgba(0, 0, 0, .8); cursor: pointer;
+    border: 1px solid var(--line); background: rgba(255, 251, 247, .92); color: var(--violet);
+    backdrop-filter: blur(8px); box-shadow: 0 10px 28px -12px rgba(70, 45, 30, .28); cursor: pointer;
     opacity: 0; translate: 0 14px; pointer-events: none;
     transition: opacity .35s var(--ease-dance), translate .45s var(--ease-dance), border-color .2s;
   }
@@ -581,3 +585,10 @@ main, .foot { overflow-x: clip; }
   .to-top:active { border-color: var(--violet); }
 }
 @media (prefers-reduced-motion: reduce) { .to-top { transition: none; } }
+
+/* ---------- текст поверх фотографий: свои светлые цвета ---------- */
+.tariff, .slide-cap, .map-cap, .lightbox, .lb-btn {
+  --text: var(--on-photo); --muted: var(--on-photo-muted); --line: rgba(248, 239, 230, .28); --violet: #e8b3bf; --spark: #ecb886;
+  color: var(--text);
+}
+.tariff-price small { color: var(--on-photo-muted); }
