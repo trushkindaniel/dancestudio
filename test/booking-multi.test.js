@@ -76,3 +76,17 @@ test('просрочка снимает все промежутки брони �
   assert.equal((await calendar.findAllByCode(r.code)).length, 0);
   assert.equal(sent.filter((x) => x[0] === 'expired').length, 1);
 });
+
+test('платёж потерялся (перезапуск, сбой ЮKassa) — просроченная бронь всё равно снимается', async () => {
+  const { booking, calendar, clock, payments } = makeEnv({ PAYMENT_PROVIDER: 'fake' });
+  const r = await booking.book(order([{ date: '2026-11-13', hours: [18] }]));
+  const [ev] = await calendar.findAllByCode(r.code);
+  payments.getPayment = async () => { throw new Error('Платёж не найден'); };
+  let s = await booking.sweep();
+  assert.equal(s.expired, 0);                                  // ещё не просрочена — ждём
+  assert.equal((await calendar.findAllByCode(r.code)).length, 1);
+  clock.now = new Date(NOW.getTime() + 3 * 3600 * 1000);
+  s = await booking.sweep();
+  assert.equal(s.expired, 1);
+  assert.equal((await calendar.findAllByCode(r.code)).length, 0, 'событие ' + ev.id + ' должно удалиться');
+});

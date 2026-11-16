@@ -313,7 +313,10 @@ function createBookingService({ calendar, cfg, notify, payments = null, now = ()
         }
         const pid = evs[0].private.paymentId;
         if (pid && payments) {
-          const r = await syncPayment(pid);
+          // Статус платежа не узнали (сбой сети, платёж не найден) — не страшно:
+          // ниже просроченная бронь всё равно снимется, иначе она навсегда заняла бы время.
+          let r = null;
+          try { r = await syncPayment(pid); } catch (e) { result.errors++; log.error(`[sweep] бронь ${code}: платёж ${pid}:`, e.message); }
           if (r === 'paid') { result.paid++; continue; }
           if (r === 'released') { result.released++; continue; }
           if (r === 'refunded') { result.refunded++; continue; }
