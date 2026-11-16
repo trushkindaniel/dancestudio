@@ -656,7 +656,6 @@
     ['.tariff-day', 'left'],
     ['.tariff-peak', 'right'],
     ['.timeline', 'rise'],
-    ['#moodSlider .tile', 'rise', true],
     ['.cal-card', 'rise'],
     ['.summary', 'right'],
     ['.rules > div:not(.rules-photos) h3', 'rise'],
