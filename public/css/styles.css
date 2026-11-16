@@ -331,6 +331,12 @@ textarea { resize: vertical; min-height: 68px; }
 input:hover, textarea:hover { border-color: var(--muted); }
 input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 3px solid rgba(227, 175, 186, .45); outline-offset: 0; border-color: var(--violet); }
 input[aria-invalid="true"] { border-color: var(--danger); }
+/* автозаполнение браузера: без голубой заливки, в цвет остальных полей */
+input:-webkit-autofill, input:-webkit-autofill:hover, input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--text); caret-color: var(--text);
+  -webkit-box-shadow: 0 0 0 40px var(--bg) inset; box-shadow: 0 0 0 40px var(--bg) inset;
+  transition: background-color 9999s ease-out 0s;
+}
 .err { color: var(--danger); font-size: 13px; margin-top: 4px; }
 .err:empty { display: none; }
 .check { display: flex; gap: 10px; align-items: flex-start; font-weight: 400; font-size: 14px; color: var(--muted); margin-bottom: 8px; cursor: pointer; }
@@ -504,7 +510,11 @@ dialog::backdrop { background: rgba(8, 6, 11, .8); }
 }
 
 /* формат аренды и число людей в форме */
-.field-row { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 12px; }
+.field-row { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); grid-template-rows: auto auto auto; column-gap: 12px; }
+/* подпись, поле и ошибка в общих строках: если подпись переносится, поля всё равно стоят на одной линии */
+.field-row .field { display: grid; grid-row: span 3; grid-template-rows: subgrid; row-gap: 0; }
+.field-row .field label { align-self: end; }
+.field-row .opt { white-space: nowrap; }
 
 /* ссылка на карту вместо заглушки */
 .map-link { display: flex; flex-direction: column; justify-content: flex-end; gap: 6px; padding: 24px; text-decoration: none; color: var(--text); }
