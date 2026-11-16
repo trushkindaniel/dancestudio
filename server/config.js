@@ -42,8 +42,8 @@ function buildConfig(env = process.env) {
     holdMinutes: num(env, 'HOLD_MINUTES', 120),
     horizonDays: num(env, 'HORIZON_DAYS', 60),
     maxHours: num(env, 'MAX_HOURS', 8),
-    // бронь блоками: 2 часа = 09–11, 11–13, …; блок не пересекает границу тарифов, если PEAK_FROM попадает на начало блока
-    slotHours: num(env, 'SLOT_HOURS', 2),
+    // бронь блоками по SLOT_HOURS часов: 1 = 09–10, 10–11, …; 2 = 09–11, 11–13, …
+    slotHours: num(env, 'SLOT_HOURS', 1),
     maxRanges: num(env, 'MAX_RANGES', 10),   // сколько промежутков (в разные дни) можно взять за одну бронь
     minLeadMinutes: num(env, 'MIN_LEAD_MINUTES', 60),
     maxSlotsRangeDays: 14,

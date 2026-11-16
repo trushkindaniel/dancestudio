@@ -4,9 +4,10 @@
  * но подойдёт любой CalDAV-сервер. Вход: логин и пароль приложения, без внешних библиотек.
  *
  * Каждое событие брони лежит по адресу <календарь>/booking-<код>-<номер промежутка>.ics,
- * поэтому все промежутки брони находятся по коду без поиска.
- * Служебные данные брони (статус, токен, контакты) хранятся в событии в свойстве X-BOOKING-DATA
- * и, на случай если сервер его выбросит, последней строкой описания.
+ * поэтому все промежутки брони находятся по коду без поиска. UID события совпадает с именем файла:
+ * Яндекс сохраняет событие под именем из UID, а не по адресу, куда его отправили.
+ * Служебные данные брони (статус, токен, контакты) хранятся в свойстве X-BOOKING-DATA и последней
+ * строкой описания «#booking:…». Яндекс X-свойства выбрасывает, у него работает строка в описании.
  *
  * Цвет событий по CalDAV у Яндекса не меняется, поэтому статус виден по значку в названии:
  * ⏳ — ждёт оплаты, ✅ — оплачено. Администратор может подтвердить бронь, заменив ⏳ на ✅.
@@ -151,7 +152,7 @@ function createCalDavCalendar(cfg, deps = {}) {
     async createEvent(ev) {
       const n = Number(String(ev.private.part || '1/1').split('/')[0]) || 1;
       const id = idFor(ev.private.code, n);
-      const body = buildEvent({ uid: `${id}@arenda-zala-55`, summary: ev.summary, description: ev.description, start: ev.start, end: ev.end, data: ev.private, stamp: now() });
+      const body = buildEvent({ uid: id, summary: ev.summary, description: ev.description, start: ev.start, end: ev.end, data: ev.private, stamp: now() });
       await req('PUT', await hrefFor(id), {
         headers: { 'Content-Type': 'text/calendar; charset=utf-8', 'If-None-Match': '*' },
         body,
@@ -191,15 +192,17 @@ function createCalDavCalendar(cfg, deps = {}) {
       if (!r) return;
       const e = r.ev;
       const body = buildEvent({
-        uid: e.uid || `${id}@arenda-zala-55`,
+        uid: id,
         summary: patch.summary !== undefined ? patch.summary : e.summary,
         description: e.description,
         start: e.start, end: e.end,
         data: patch.private ? patch.private : e.data,
         stamp: now(),
       });
+      // If-Match не шлём: Яндекс отдаёт ETag с хвостом «--gzip», который сам же не принимает.
+      // Сервер работает в одном экземпляре и меняет брони под замком, гонки с собой нет.
       await req('PUT', await hrefFor(id), {
-        headers: { 'Content-Type': 'text/calendar; charset=utf-8', ...(r.etag ? { 'If-Match': r.etag } : {}) },
+        headers: { 'Content-Type': 'text/calendar; charset=utf-8' },
         body,
       });
     },

@@ -11,7 +11,7 @@ const { createFakePayments } = require('../server/payments');
 const NOW = new Date('2026-11-09T07:00:00Z'); // понедельник, 10:00 МСК
 
 /** Поддельный CalDAV-сервер в духе caldav.yandex.ru */
-function fakeCalDav({ calendars = [{ path: '/calendars/user@yandex.ru/events-1/', name: 'Мои события' }, { path: '/calendars/user@yandex.ru/events-2/', name: 'Зал' }], dropXProps = false } = {}) {
+function fakeCalDav({ calendars = [{ path: '/calendars/user@yandex.ru/events-1/', name: 'Мои события' }, { path: '/calendars/user@yandex.ru/events-2/', name: 'Зал' }], dropXProps = true } = {}) {
   const store = new Map(); // path → { text, etag }
   let etagN = 0;
   const calls = [];
@@ -33,18 +33,21 @@ function fakeCalDav({ calendars = [{ path: '/calendars/user@yandex.ru/events-1/'
       return reply(207, `<D:multistatus xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">${rows.join('')}</D:multistatus>`);
     }
     if (method === 'PUT') {
-      const cur = store.get(u.pathname);
+      // как Яндекс: событие сохраняется под именем из UID, а не по адресу запроса
+      const uid = /\r\nUID:([^\r\n]+)/.exec(init.body)[1];
+      const key = u.pathname.replace(/[^/]+$/, '') + encodeURIComponent(uid) + '.ics';
+      const cur = store.get(key);
       if (h['If-None-Match'] === '*' && cur) return reply(412, 'exists');
       if (h['If-Match'] && (!cur || cur.etag !== h['If-Match'])) return reply(412, 'etag');
       let text = init.body;
       if (dropXProps) text = text.split('\r\n').filter((l) => !l.startsWith('X-')).join('\r\n');
       const etag = `"${++etagN}"`;
-      store.set(u.pathname, { text, etag });
-      return reply(cur ? 204 : 201, '', { etag });
+      store.set(key, { text, etag });
+      return reply(cur ? 204 : 201, '');
     }
     if (method === 'GET') {
       const cur = store.get(u.pathname);
-      return cur ? reply(200, cur.text, { etag: cur.etag }) : reply(404, 'not found');
+      return cur ? reply(200, cur.text, { etag: cur.etag + '--gzip' }) : reply(404, 'not found');
     }
     if (method === 'DELETE') return reply(store.delete(u.pathname) ? 204 : 404);
     if (method === 'REPORT') {
@@ -174,8 +177,8 @@ test('caldav: администратор заменил ⏳ на ✅ — бро�
   assert.equal(ev.private.status, 'paid');
 });
 
-test('caldav: если сервер выбросил X-свойство, данные берутся из описания', async () => {
-  const f = fakeCalDav({ dropXProps: true });
+test('caldav: Яндекс выбрасывает X-свойство — данные берутся из описания', async () => {
+  const f = fakeCalDav();
   const { booking, calendar } = service(f);
   const r = await booking.book(order({ ranges: [{ date: '2026-11-13', hours: [12] }] }));
   assert.ok(![...f.store.values()][0].text.includes('X-BOOKING-DATA'));
