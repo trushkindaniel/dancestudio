@@ -13,7 +13,8 @@
     "test": "node scripts/test.js",
     "check:mail": "node scripts/check-mail.js",
     "preview:mail": "node scripts/preview-mail.js",
-    "deploy": "bash scripts/deploy.sh"
+    "deploy": "bash scripts/deploy.sh",
+    "check:calendar": "node scripts/check-calendar.js"
   },
   "dependencies": {
     "nodemailer": "^6.9.16"

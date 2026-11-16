@@ -114,11 +114,13 @@ function createBookingService({ calendar, cfg, notify, payments = null, now = ()
       const hoursCount = parts.reduce((t, r) => t + r.hours.length, 0);
       const allLabels = parts.map((r) => { const lb = labels(r.date, r.first, r.last); return `${lb.dateLabel}, ${lb.timeLabel}`; });
 
+      // В Яндекс Календаре (CalDAV) цвет события не меняется: статус показывает значок ⏳/✅ в названии
+      const byIcon = calendar.driver === 'caldav';
+      const dl = T.nowInTz(deadline, cfg.tz);
+      const until = `Если оплаты не будет до ${dl.date} ${T.pad(Math.floor(dl.minutes / 60))}:${T.pad(dl.minutes % 60)}, события удалятся сами.`;
       const howToConfirm = online
-        ? ['Оплата онлайн через виджет ЮKassa на сайте. Когда платёж пройдёт, сайт сам покрасит события брони в зелёный и напишет клиенту.',
-          `Если оплаты не будет до ${deadline.toISOString()}, события удалятся сами.`]
-        : ['Оплата пришла? Покрасьте событие в зелёный цвет («Базилик»): подтвердится вся бронь.',
-          `Если оплаты не будет до ${deadline.toISOString()}, события удалятся сами.`];
+        ? [`Оплата онлайн через виджет ЮKassa на сайте. Когда платёж пройдёт, сайт сам ${byIcon ? 'заменит ⏳ на ✅ в названии' : 'покрасит события брони в зелёный'} и напишет клиенту.`, until]
+        : [byIcon ? 'Оплата пришла? Замените ⏳ на ✅ в названии любого события брони: подтвердится вся бронь.' : 'Оплата пришла? Покрасьте событие в зелёный цвет («Базилик»): подтвердится вся бронь.', until];
 
       const created = [];
       const privs = [];

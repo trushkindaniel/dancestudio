@@ -54,7 +54,15 @@ function buildConfig(env = process.env) {
 
     sweepIntervalSec: num(env, 'SWEEP_INTERVAL_SEC', 300),
 
-    calendarDriver: env.CALENDAR_DRIVER || 'memory',
+    // memory | yandex (CalDAV, Яндекс Календарь) | caldav (любой CalDAV) | google
+    calendarDriver: env.CALENDAR_DRIVER === 'yandex' ? 'caldav' : (env.CALENDAR_DRIVER || 'memory'),
+    caldav: {
+      url: env.CALDAV_URL || 'https://caldav.yandex.ru/',
+      user: env.CALDAV_USER || env.YANDEX_LOGIN || '',
+      password: env.CALDAV_PASSWORD || env.YANDEX_APP_PASSWORD || '',
+      // название календаря или его полный адрес; пусто — первый календарь пользователя
+      calendar: env.CALDAV_CALENDAR || env.YANDEX_CALENDAR || '',
+    },
     googleCalendarId: env.GOOGLE_CALENDAR_ID || '',
     googleServiceAccountFile: env.GOOGLE_SERVICE_ACCOUNT_FILE || '',
     googleServiceAccountJson: env.GOOGLE_SERVICE_ACCOUNT_JSON || '',
@@ -101,7 +109,8 @@ function buildConfig(env = process.env) {
   if (!Number.isInteger(cfg.slotHours) || cfg.slotHours < 1) throw new Error('SLOT_HOURS: целое число часов, от 1');
   if ((cfg.closeHour - cfg.openHour) % cfg.slotHours) throw new Error('Часы работы должны делиться на блоки SLOT_HOURS без остатка');
   if (cfg.maxHours % cfg.slotHours) throw new Error('MAX_HOURS должен делиться на SLOT_HOURS');
-  if (!['memory', 'google'].includes(cfg.calendarDriver)) throw new Error('CALENDAR_DRIVER: memory или google');
+  if (!['memory', 'google', 'caldav'].includes(cfg.calendarDriver)) throw new Error('CALENDAR_DRIVER: memory, yandex, caldav или google');
+  if (cfg.calendarDriver === 'caldav' && (!cfg.caldav.user || !cfg.caldav.password)) throw new Error('Для Яндекс Календаря нужны YANDEX_LOGIN и YANDEX_APP_PASSWORD (пароль приложения «Календарь CalDAV»)');
   const pay = cfg.payment;
   if (!['yookassa', 'fake', 'transfer'].includes(pay.provider)) throw new Error('PAYMENT_PROVIDER: yookassa, fake или transfer');
   if (pay.provider === 'yookassa' && (!pay.shopId || !pay.secretKey)) throw new Error('Для yookassa нужны YOOKASSA_SHOP_ID и YOOKASSA_SECRET_KEY');
