@@ -4,8 +4,8 @@
 set -euo pipefail
 
 HOST="${DEPLOY_HOST:-u232123@79.133.175.41}"
-DIR="${DEPLOY_DIR:-www/lovestretch-omsk.ru}"
-APP="${DEPLOY_APP:-lovestretch-omsk.ru}"
+DIR="${DEPLOY_DIR:-www/xn--55-6kcaaazhu5br8a.xn--p1ai}"
+APP="${DEPLOY_APP:-xn--55-6kcaaazhu5br8a.xn--p1ai}"
 
 if [ -n "$(git status --porcelain)" ]; then echo "Есть незакоммиченные изменения: на сайт уйдёт только то, что в main на GitHub." >&2; fi
 git push origin main
