@@ -145,12 +145,13 @@ test('POST /api/book без согласия на обработку персо�
   } finally { await s.close(); }
 });
 
-test('152-ФЗ: шрифты свои — страницы не грузят ничего с Google Fonts', async () => {
+test('152-ФЗ: шрифты и карта свои — страницы не грузят Google Fonts и OpenStreetMap', async () => {
   const s = await start();
   try {
     for (const p of ['/', '/privacy', '/consent', '/nope']) {
       const html = await (await fetch(s.base + p)).text();
       assert.ok(!/fonts\.(googleapis|gstatic)\.com/.test(html), p);
+      assert.ok(!/<iframe[^>]+openstreetmap\.org/.test(html), p + ': карта должна быть своей картинкой');
     }
     const css = await fetch(s.base + '/css/fonts.css');
     assert.equal(css.status, 200);
