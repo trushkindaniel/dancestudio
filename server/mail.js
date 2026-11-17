@@ -12,6 +12,8 @@ const money = (n) => `${new Intl.NumberFormat('ru-RU').format(Number(n) || 0).re
 /** «17:45» — во сколько забрать ключ: за N минут до начала аренды */
 function pickupTime(startHour, beforeMin) {
   const m = startHour * 60 - beforeMin;
+  // аренда с 00:00 — ключ забирают накануне вечером
+  if (m < 0) { const w = m + 24 * 60; return `${pad(Math.floor(w / 60))}:${pad(w % 60)} накануне`; }
   return `${pad(Math.floor(m / 60))}:${pad(m % 60)}`;
 }
 

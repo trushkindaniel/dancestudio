@@ -99,3 +99,17 @@ test('152-ФЗ: в брони записано, когда и на какую р
   assert.equal(ev.private.pdConsentDoc, '2026-11-17');
   assert.match(ev.description, /Согласие на обработку персональных данных: дано/);
 });
+
+test('круглосуточно (OPEN_HOUR=0, CLOSE_HOUR=24): брони 00–01 и 23–24, конец в полночь следующего дня', async () => {
+  const { booking, calendar, cfg } = makeEnv({ OPEN_HOUR: '0', CLOSE_HOUR: '24' });
+  assert.equal(cfg.openHour, 0);
+  assert.equal(cfg.closeHour, 24);
+  const r = await booking.book(order([{ date: '2026-11-13', hours: [23] }, { date: '2026-11-14', hours: [0, 1] }]));
+  assert.deepEqual(r.ranges.map((x) => x.timeLabel), ['23:00–24:00', '00:00–02:00']);
+  const evs = await calendar.findAllByCode(r.code);
+  const late = evs.find((e) => e.private.date === '2026-11-13');
+  assert.equal(late.end, '2026-11-13T21:00:00.000Z'); // 24:00 МСК = 00:00 следующего дня
+  assert.equal(r.total, 1000 + 800 * 2);              // 23:00 — вечерний тариф, ночь — дневной
+  const busy = await booking.getBusy('2026-11-13', '2026-11-14');
+  assert.ok(busy['2026-11-13'].includes(23) && busy['2026-11-14'].includes(0));
+});
