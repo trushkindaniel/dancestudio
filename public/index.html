@@ -186,9 +186,14 @@
           </div>
           <label class="check">
             <input id="fConsent" type="checkbox" required>
-            <span>Согласен с <a href="#rules">правилами пользования</a> и на обработку персональных данных</span>
+            <span>Принимаю <a href="#rules">правила пользования залом</a></span>
           </label>
           <p class="err" id="eConsent" aria-live="polite"></p>
+          <label class="check">
+            <input id="fPdConsent" type="checkbox" required>
+            <span>Даю <a href="/consent" target="_blank" rel="noopener">согласие на обработку персональных данных</a> и ознакомлен с <a href="/privacy" target="_blank" rel="noopener">политикой обработки</a></span>
+          </label>
+          <p class="err" id="ePdConsent" aria-live="polite"></p>
 
           <!-- ловушка для ботов: человек это поле не видит -->
           <div class="hp" aria-hidden="true"><label>Сайт<input id="fWebsite" name="website" type="text" tabindex="-1" autocomplete="off"></label></div>
@@ -324,7 +329,10 @@
     <span class="logo logo--foot">Аренда зала 55</span>
     <span class="muted">Аренда танцевального зала по часам · Омск</span>
   </div>
-  <p class="foot-req">ИП Нарольский Владимир Владимирович<br>ИНН 550709511064</p>
+  <div class="foot-side">
+    <p class="foot-req">ИП Нарольский Владимир Владимирович<br>ИНН 550709511064</p>
+    <p class="foot-links"><a href="/privacy">Политика обработки персональных данных</a><a href="/consent">Согласие на обработку данных</a></p>
+  </div>
 </footer>
 
 <!-- ОКНО ОПЛАТЫ -->

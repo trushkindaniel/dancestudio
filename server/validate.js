@@ -37,7 +37,9 @@ function validateBooking(input, cfg, now) {
   if (!EMAIL_RE.test(email) || email.length > 120) f.email = 'Проверьте почту, например name@mail.ru';
   if (note.length > 500) f.note = 'Комментарий не длиннее 500 символов';
   if (people !== null && !(Number.isInteger(people) && people >= 1 && people <= 60)) f.people = 'Число людей от 1 до 60';
-  if (src.consent !== true) f.consent = 'Нужно согласие, чтобы оформить бронь';
+  if (src.consent !== true) f.consent = 'Подтвердите, что принимаете правила пользования залом';
+  // 152-ФЗ: согласие на обработку персональных данных — отдельной отметкой, по умолчанию не стоит
+  if (src.pdConsent !== true) f.pdConsent = 'Без согласия на обработку персональных данных мы не сможем оформить бронь';
 
   let okHours = hours.length > 0 && hours.length <= cfg.maxHours && hours.every((h) => Number.isInteger(h));
   if (okHours) {

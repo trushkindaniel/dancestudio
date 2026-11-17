@@ -254,7 +254,7 @@
     var i = $(inputId); $(errId).textContent = msg || '';
     if (i) { if (msg) i.setAttribute('aria-invalid', 'true'); else i.removeAttribute('aria-invalid'); }
   }
-  var FIELD_MAP = { name: ['fName', 'eName'], phone: ['fPhone', 'ePhone'], email: ['fEmail', 'eEmail'], consent: ['fConsent', 'eConsent'] };
+  var FIELD_MAP = { name: ['fName', 'eName'], phone: ['fPhone', 'ePhone'], email: ['fEmail', 'eEmail'], consent: ['fConsent', 'eConsent'], pdConsent: ['fPdConsent', 'ePdConsent'] };
 
   function validate() {
     var ok = true, first = null;
@@ -265,7 +265,8 @@
     if (name.length < 2) bad('fName', 'eName', 'Введите имя');
     if (phone.length < 10) bad('fPhone', 'ePhone', 'Введите телефон полностью');
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) bad('fEmail', 'eEmail', 'Проверьте почту, например name@mail.ru');
-    if (!$('fConsent').checked) bad('fConsent', 'eConsent', 'Нужно согласие, чтобы оформить бронь');
+    if (!$('fConsent').checked) bad('fConsent', 'eConsent', 'Подтвердите, что принимаете правила пользования залом');
+    if (!$('fPdConsent').checked) bad('fPdConsent', 'ePdConsent', 'Без согласия на обработку персональных данных мы не сможем оформить бронь');
     if (first) first.focus();
     return ok;
   }
@@ -471,7 +472,7 @@
         ranges: ranges,
         name: $('fName').value.trim(), phone: $('fPhone').value.trim(), email: email,
         purpose: $('fPurpose').value, people: $('fPeople').value ? Number($('fPeople').value) : null,
-        note: $('fNote').value.trim(), consent: $('fConsent').checked, website: $('fWebsite').value,
+        note: $('fNote').value.trim(), consent: $('fConsent').checked, pdConsent: $('fPdConsent').checked, website: $('fWebsite').value,
       },
     }).then(function (r) {
       state.picks = {};

@@ -86,7 +86,7 @@ function service(fetch, extra) {
 
 const order = (over = {}) => ({
   ranges: [{ date: '2026-11-13', hours: [18, 19] }, { date: '2026-11-14', hours: [10] }],
-  name: 'Анна, «Тест»; с запятой', phone: '+7 900 123-45-67', email: 'anna@example.com', note: '', consent: true, website: '', ...over,
+  name: 'Анна, «Тест»; с запятой', phone: '+7 900 123-45-67', email: 'anna@example.com', note: '', consent: true, pdConsent: true, website: '', ...over,
 });
 
 test('ical: событие собирается и разбирается обратно без потерь', () => {

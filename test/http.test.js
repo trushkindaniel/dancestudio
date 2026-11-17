@@ -14,7 +14,7 @@ async function start() {
 }
 
 const post = (url, body) => fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-const body = (over = {}) => ({ date: '2026-11-13', hours: [18, 19], name: 'Анна', phone: '+7 900 123-45-67', email: 'anna@example.com', consent: true, website: '', ...over });
+const body = (over = {}) => ({ date: '2026-11-13', hours: [18, 19], name: 'Анна', phone: '+7 900 123-45-67', email: 'anna@example.com', consent: true, pdConsent: true, website: '', ...over });
 
 // «сырой» запрос, чтобы адрес не нормализовался клиентом
 const raw = (base, path) => new Promise((resolve, reject) => {
@@ -120,4 +120,27 @@ test('лимитчик: окно скользит', () => {
   assert.equal(allow('k', 2, 1000, 100), true);
   assert.equal(allow('k', 2, 1000, 200), false);
   assert.equal(allow('k', 2, 1000, 1200), true);
+});
+
+test('страницы 152-ФЗ: /privacy и /consent открываются без .html', async () => {
+  const s = await start();
+  try {
+    for (const [p, h] of [['/privacy', 'Политика обработки персональных данных'], ['/consent', 'Согласие на обработку персональных данных'], ['/privacy.html', 'Политика']]) {
+      const r = await fetch(s.base + p);
+      assert.equal(r.status, 200, p);
+      assert.ok((await r.text()).includes(h), p);
+    }
+    assert.equal((await fetch(s.base + '/nope')).status, 404);
+  } finally { await s.close(); }
+});
+
+test('POST /api/book без согласия на обработку персональных данных — 400 по полю pdConsent', async () => {
+  const s = await start();
+  try {
+    const r = await post(`${s.base}/api/book`, body({ pdConsent: false }));
+    assert.equal(r.status, 400);
+    const j = await r.json();
+    assert.ok(j.fields && j.fields.pdConsent, JSON.stringify(j));
+    assert.ok(!j.fields.consent);
+  } finally { await s.close(); }
 });

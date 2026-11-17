@@ -90,3 +90,12 @@ test('платёж потерялся (перезапуск, сбой ЮKassa) �
   assert.equal(s.expired, 1);
   assert.equal((await calendar.findAllByCode(r.code)).length, 0, 'событие ' + ev.id + ' должно удалиться');
 });
+
+test('152-ФЗ: в брони записано, когда и на какую редакцию дано согласие', async () => {
+  const { booking, calendar } = makeEnv();
+  const r = await booking.book(order([{ date: '2026-11-13', hours: [12] }]));
+  const [ev] = await calendar.findAllByCode(r.code);
+  assert.equal(ev.private.pdConsentAt, NOW.toISOString());
+  assert.equal(ev.private.pdConsentDoc, '2026-11-17');
+  assert.match(ev.description, /Согласие на обработку персональных данных: дано/);
+});

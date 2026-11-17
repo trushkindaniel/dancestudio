@@ -71,6 +71,7 @@ function serveStatic(req, res, pathname) {
   // скрытые папки и файлы (.taste-skill, .env и т.п.) наружу не отдаём
   if (rel.split('/').some((seg) => seg.startsWith('.') && seg.length > 1)) return send(res, 404, 'Not found', { 'Content-Type': 'text/plain; charset=utf-8' });
   if (rel.endsWith('/')) rel += 'index.html';
+  else if (!path.extname(rel)) rel += '.html'; // /privacy → privacy.html
   const file = path.resolve(PUBLIC_DIR, '.' + rel);
   if (file !== PUBLIC_DIR && !file.startsWith(PUBLIC_DIR + path.sep)) return send(res, 403, 'Forbidden');
 

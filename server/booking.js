@@ -9,6 +9,8 @@ const { priceFor } = require('./pricing');
 const T = require('./time');
 
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+// редакция текста согласия на обработку ПДн (public/consent.html); менять вместе с текстом
+const CONSENT_VERSION = '2026-11-17';
 const CODE_RE = /^[A-Z2-9]{4}$/;
 const TOKEN_RE = /^[0-9a-f]{24}$/;
 
@@ -135,6 +137,8 @@ function createBookingService({ calendar, cfg, notify, payments = null, now = ()
             part: `${i + 1}/${parts.length}`, expiresAt: deadline.toISOString(),
             purpose: v.purposeLabel || '', people: v.people ? String(v.people) : '',
             pay: online ? payments.provider : 'transfer',
+            // когда дано согласие на обработку ПДн и какая редакция текста (/consent) действовала
+            pdConsentAt: now().toISOString(), pdConsentDoc: CONSENT_VERSION,
           };
           const ev = await calendar.createEvent({
             summary: `⏳ ${code}${partTag} · ${v.name} · ${lb.timeLabel} · ${r.total} ₽`,
@@ -146,6 +150,7 @@ function createBookingService({ calendar, cfg, notify, payments = null, now = ()
               v.people ? `Человек: ${v.people}` : null,
               v.note ? `Комментарий: ${v.note}` : null,
               `К оплате за этот промежуток: ${r.total} ₽`,
+              `Согласие на обработку персональных данных: дано ${now().toISOString().slice(0, 16).replace('T', ' ')} UTC, редакция ${CONSENT_VERSION}`,
               '',
               ...howToConfirm,
             ].filter((x) => x !== null).join('\n'),

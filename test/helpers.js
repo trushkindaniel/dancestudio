@@ -28,7 +28,7 @@ function makeEnv(extra = {}) {
 
 const valid = (over = {}) => ({
   date: '2026-11-13', hours: [18, 19], name: 'Анна', phone: '+7 900 123-45-67',
-  email: 'anna@example.com', note: '', consent: true, website: '', ...over,
+  email: 'anna@example.com', note: '', consent: true, pdConsent: true, website: '', ...over,
 });
 
 module.exports = { NOW, makeEnv, valid };

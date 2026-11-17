@@ -359,8 +359,9 @@ input:-webkit-autofill, input:-webkit-autofill:hover, input:-webkit-autofill:foc
 
 .foot { max-width: var(--maxw); margin: clamp(72px, 10vw, 120px) auto 0; padding: 28px var(--gutter) 40px; border-top: 1px solid var(--line-soft); display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 16px 24px; font-size: 14px; }
 .foot-brand { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 24px; }
-.foot-req { color: var(--muted); font-size: 13px; line-height: 1.5; text-align: right; }
-@media (max-width: 720px) { .foot { flex-direction: column; align-items: flex-start; } .foot-req { text-align: left; } }
+.foot-req { color: var(--muted); font-size: 13px; line-height: 1.5; text-align: right; margin: 0; }
+.foot-side { display: grid; gap: 6px; justify-items: end; }
+@media (max-width: 720px) { .foot { flex-direction: column; align-items: flex-start; } .foot-req { text-align: left; } .foot-side { justify-items: start; } }
 
 /* ---------- окно оплаты ---------- */
 dialog { padding: 0; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); color: var(--text); width: min(560px, calc(100% - 24px)); max-height: calc(100dvh - 24px); overflow: auto; z-index: var(--z-modal); }
@@ -559,9 +560,13 @@ dialog::backdrop { background: rgba(8, 6, 11, .8); }
 .rules-steps li b { color: var(--text); font-weight: 700; }
 .check a { color: var(--violet); }
 
-@media (max-width: 720px) {
+/* планшеты и узкие окна: в шапке не хватает места на меню, телефон и кнопку — телефон становится значком */
+@media (max-width: 1120px) {
   .top-phone span { display: none; }
   .top-phone { width: 44px; padding: 0; justify-content: center; border: 1px solid var(--line); }
+}
+@media (max-width: 900px) { .nav { display: none; } }
+@media (max-width: 720px) {
   .brand .logo { font-size: 23px; white-space: nowrap; }
 }
 
@@ -597,3 +602,23 @@ main, .foot { overflow-x: clip; }
   color: var(--text);
 }
 .tariff-price small { color: var(--on-photo-muted); }
+
+/* ---------- документы: политика и согласие ---------- */
+.doc-top { max-width: 820px; margin: 0 auto; padding: 28px var(--gutter) 0; display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 12px 24px; }
+.doc-top .logo { font-size: 30px; text-decoration: none; }
+.doc-back { color: var(--violet); font-weight: 600; font-size: 15px; text-decoration: none; }
+.doc-back:hover { text-decoration: underline; }
+.doc { max-width: 820px; margin: 0 auto; padding: clamp(32px, 6vw, 64px) var(--gutter) 0; line-height: 1.65; }
+.doc-kicker { color: var(--muted); font-size: 14px; margin: 0 0 8px; }
+.doc h1 { font-family: var(--font-serif); font-weight: 600; font-size: clamp(34px, 5vw, 52px); line-height: 1.1; color: var(--violet); margin: 0 0 28px; text-align: left; }
+.doc h1::before { content: none; }
+.doc h2 { font-family: var(--font-serif); font-weight: 600; font-size: clamp(22px, 3vw, 28px); line-height: 1.2; color: var(--text); margin: 36px 0 12px; text-align: left; }
+.doc h2::before { content: none; }
+.doc p, .doc li { font-size: 16px; color: var(--text); max-width: 72ch; }
+.doc p { margin: 0 0 12px; }
+.doc ul { margin: 0 0 12px; padding-left: 22px; list-style: disc; }
+.doc li { margin-bottom: 6px; }
+.doc li::marker { color: var(--spark); }
+.doc a, .foot a:not(.logo) { color: var(--violet); text-decoration: underline; text-underline-offset: 3px; }
+.foot .logo { text-decoration: none; }
+.foot-links { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 13px; margin: 0; }
