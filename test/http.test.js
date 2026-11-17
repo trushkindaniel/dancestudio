@@ -144,3 +144,18 @@ test('POST /api/book без согласия на обработку персо�
     assert.ok(!j.fields.consent);
   } finally { await s.close(); }
 });
+
+test('152-ФЗ: шрифты свои — страницы не грузят ничего с Google Fonts', async () => {
+  const s = await start();
+  try {
+    for (const p of ['/', '/privacy', '/consent', '/nope']) {
+      const html = await (await fetch(s.base + p)).text();
+      assert.ok(!/fonts\.(googleapis|gstatic)\.com/.test(html), p);
+    }
+    const css = await fetch(s.base + '/css/fonts.css');
+    assert.equal(css.status, 200);
+    const font = await fetch(s.base + '/fonts/great-vibes-logo-normal-400.woff2');
+    assert.equal(font.status, 200);
+    assert.equal(font.headers.get('content-type'), 'font/woff2');
+  } finally { await s.close(); }
+});
