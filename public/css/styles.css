@@ -357,7 +357,10 @@ input:-webkit-autofill, input:-webkit-autofill:hover, input:-webkit-autofill:foc
 .contact-line a:hover { color: var(--violet); }
 .map { min-height: 280px; border-radius: var(--r-lg); border: 1px dashed var(--line); background: repeating-linear-gradient(45deg, var(--surface) 0 12px, var(--bg-2) 12px 24px); display: grid; place-items: center; color: var(--muted); }
 
-.foot { max-width: var(--maxw); margin: clamp(72px, 10vw, 120px) auto 0; padding: 28px var(--gutter) 40px; border-top: 1px solid var(--line-soft); display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 24px; font-size: 14px; }
+.foot { max-width: var(--maxw); margin: clamp(72px, 10vw, 120px) auto 0; padding: 28px var(--gutter) 40px; border-top: 1px solid var(--line-soft); display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 16px 24px; font-size: 14px; }
+.foot-brand { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 24px; }
+.foot-req { color: var(--muted); font-size: 13px; line-height: 1.5; text-align: right; }
+@media (max-width: 720px) { .foot { flex-direction: column; align-items: flex-start; } .foot-req { text-align: left; } }
 
 /* ---------- окно оплаты ---------- */
 dialog { padding: 0; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); color: var(--text); width: min(560px, calc(100% - 24px)); max-height: calc(100dvh - 24px); overflow: auto; z-index: var(--z-modal); }
