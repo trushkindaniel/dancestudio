@@ -365,6 +365,7 @@
     $('payStatus').hidden = mode === 'transfer';
     $('payClose').hidden = mode === 'widget';      // во время оплаты окно закрывается только отменой брони
     $('payCancel').hidden = mode === 'status';
+    if (mode !== 'widget') $('paySbp').hidden = true;
   }
 
   function fillHead(r) {
@@ -426,6 +427,7 @@
   function openWidget(r, email) {
     current = { code: r.code, token: r.token, deadline: new Date(r.deadline).getTime(), online: true, sub: r.subscription || null };
     stopTimer(); destroyWidget(); payMode('widget'); fillHead(r);
+    $('paySbp').hidden = Boolean(r.subscription);   // постоянную бронь оплачивают картой
     chip('Ожидает оплаты');
     $('payStatus').textContent = 'Оплатите картой или через СБП. Время на оплату: ' + holdLabel(CONFIG.holdMinutes) + ', потом слот освободится.';
     $('payMail').textContent = 'Подтверждение придёт на ' + email + '.';
@@ -453,6 +455,34 @@
       $('payWidget').textContent = '';
       $('payError').textContent = 'Не удалось загрузить форму оплаты ЮKassa. Проверьте интернет или отключите блокировщик рекламы и обновите страницу.';
     });
+  }
+
+  // «Оплатить по СБП»: сервер создаёт платёж СБП, переходим на страницу ЮKassa, оттуда вернёмся с ?pay=КОД
+  function onSbp() {
+    if (!current) return;
+    var b = $('sbpBtn'); b.disabled = true; b.textContent = 'Открываем СБП…';
+    api('/api/book/' + current.code + '/sbp?token=' + current.token, { method: 'POST' }).then(function (r) {
+      location.href = r.confirmationUrl;
+    }).catch(function (err) {
+      b.disabled = false; b.textContent = 'Оплатить по СБП';
+      $('payError').textContent = err.status ? err.message : 'Нет связи с сервером. Попробуйте ещё раз.';
+    });
+  }
+
+  // вернулись со страницы ЮKassa после СБП: показываем итог оплаты
+  function resumeFromSbp() {
+    var q = new URLSearchParams(location.search), code = q.get('pay'), token = q.get('t'), fakepay = q.get('fakepay');
+    if (!code || !token || !/^[A-Za-z0-9]{4}$/.test(code)) return;
+    if (history.replaceState) history.replaceState(null, '', location.pathname + '#booking');
+    current = { code: code, token: token, deadline: 0, online: true, sub: null };
+    payMode('status'); $('paySbp').hidden = true;
+    $('payTitle').textContent = 'Бронь ' + code;
+    $('payMail').textContent = '';
+    dlg.showModal();
+    if (fakepay) { payMode('widget'); $('paySbp').hidden = true; return renderFakeWidget(fakepay); }  // режим разработки
+    chip('Проверяем оплату');
+    $('payStatus').textContent = 'Проверяем платёж по СБП, это несколько секунд.';
+    pollStatus(code, token, 0);
   }
 
   // режим разработки: вместо формы ЮKassa две кнопки, деньги не списываются
@@ -792,6 +822,7 @@
       r.addEventListener('change', function () { updateFreq(); $('eForm').textContent = ''; });
     });
     $('fAutopay').addEventListener('change', function () { $('fAutopay').removeAttribute('aria-invalid'); $('eAutopay').textContent = ''; });
+    $('sbpBtn').addEventListener('click', onSbp);
     $('dayTabs').addEventListener('click', function (e) {
       var t = e.target.closest('.daytab'); if (!t || t.disabled) return;
       state.day = t.dataset.day; render();
@@ -828,7 +859,7 @@
       $('pricePeak').textContent = num(cfg.pricePeak);
       $('formHint').textContent = (cfg.payment === 'transfer' ? 'Оплата переводом на следующем шаге.' : 'Оплата картой или через СБП прямо на сайте, форма ЮKassa.') +
         ' Слот держится ' + holdLabel(cfg.holdMinutes) + '.';
-      if (!bound) { bind(); bound = true; }
+      if (!bound) { bind(); bound = true; resumeFromSbp(); }
       return loadWeek();
     }).catch(function () {
       $('calErrorText').textContent = 'Сервис записи сейчас недоступен. Попробуйте позже или позвоните нам.';

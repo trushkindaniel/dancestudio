@@ -130,6 +130,13 @@ function createApp({ cfg, booking, calendar, payments = null, subs = null, now =
       return send(res, 200, await booking.status(st[1].toUpperCase(), url.searchParams.get('token') || ''));
     }
 
+    // «Оплатить по СБП»: платёж СБП и ссылка на страницу ЮKassa
+    const sbp = req.method === 'POST' && /^\/api\/book\/([A-Za-z0-9]{4})\/sbp$/.exec(pathname);
+    if (sbp) {
+      if (!allow(`sbp:${ip}`, 10, 10 * 60_000)) throw new AppError(429, 'rate_limit', 'Слишком много попыток');
+      return send(res, 200, await booking.payBySbp(sbp[1].toUpperCase(), url.searchParams.get('token') || ''));
+    }
+
     // Уведомление ЮKassa. Телу не доверяем: берём только id платежа и спрашиваем статус у API.
     if (req.method === 'POST' && pathname === '/api/payments/yookassa') {
       if (!allow(`hook:${ip}`, 300, 60_000)) throw new AppError(429, 'rate_limit', 'Слишком много запросов');

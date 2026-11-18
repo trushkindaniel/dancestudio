@@ -325,6 +325,30 @@ function createBookingService({ calendar, cfg, notify, payments = null, now = ()
     });
   }
 
+  /**
+   * Клиент выбрал «Оплатить по СБП»: создаём платёж СБП и привязываем бронь к нему.
+   * Прежний платёж виджета больше не используется; если он всё же пройдёт — syncPayment вернёт деньги.
+   */
+  async function payBySbp(code, token) {
+    if (!payments || !payments.createSbpPayment) throw new AppError(400, 'no_sbp', 'Оплата по СБП недоступна');
+    return withLock(async () => {
+      const evs = await findOwned(code, token);
+      if (!evs) throw new AppError(404, 'not_found', 'Бронь не найдена или уже снята');
+      if (evs.some((e) => e.private.status !== 'pending')) throw new AppError(409, 'already_paid', 'Бронь уже оплачена');
+      if (evs[0].private.sub) throw new AppError(400, 'card_only', 'Постоянную бронь оплачивают картой: с неё будут списания за следующие занятия');
+      const o = describe(evs);
+      const p = await payments.createSbpPayment({
+        code, total: o.total, date: o.date, hours: `${o.startHour}-${o.endHour - 1}`, hoursCount: o.hoursTotal,
+        email: o.email, phone: o.phone, dateLabel: o.dateLabel, timeLabel: o.timeLabel,
+        returnUrl: `${cfg.baseUrl.replace(/\/$/, '')}/?pay=${code}&t=${token}#booking`,
+        idempotenceKey: `sbp-${code}-${evs[0].private.expiresAt}`,
+      });
+      if (!p.confirmationUrl) throw new AppError(502, 'payment_unavailable', 'ЮKassa не ответила, попробуйте ещё раз или оплатите картой');
+      for (const e of evs) await calendar.patchEvent(e.id, { private: { ...e.private, paymentId: p.id } });
+      return { confirmationUrl: p.confirmationUrl };
+    });
+  }
+
   /** Статус брони для клиента после оплаты в виджете. */
   async function status(code, token) {
     let evs = await findOwned(code, token);
@@ -390,7 +414,7 @@ function createBookingService({ calendar, cfg, notify, payments = null, now = ()
   }
 
   return {
-    getBusy, book, cancel, status, syncPayment, sweep,
+    getBusy, book, cancel, status, syncPayment, sweep, payBySbp,
     setSubscriptions(s, h) { subs = s; hooks = h || {}; },
     // для server/subscriptions.js
     _internal: { withLock, describe, labels, toParts, uniqueCode, createEvents, createOrder, orderResponse, markPaid, fmtDeadline },

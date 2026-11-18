@@ -113,3 +113,25 @@ test('круглосуточно (OPEN_HOUR=0, CLOSE_HOUR=24): брони 00–0
   const busy = await booking.getBusy('2026-11-13', '2026-11-14');
   assert.ok(busy['2026-11-13'].includes(23) && busy['2026-11-14'].includes(0));
 });
+
+test('оплата по СБП: отдельный платёж с переходом на страницу ЮKassa, после оплаты бронь подтверждена', async () => {
+  const { booking, calendar, payments, cfg } = makeEnv({ PAYMENT_PROVIDER: 'fake', BASE_URL: 'https://site.test' });
+  const r = await booking.book(order([{ date: '2026-11-13', hours: [12] }]));
+  const oldPid = (await calendar.findAllByCode(r.code))[0].private.paymentId;
+  const s = await booking.payBySbp(r.code, r.token);
+  assert.ok(s.confirmationUrl.startsWith(`https://site.test/?pay=${r.code}&t=${r.token}&fakepay=fake-`), s.confirmationUrl);
+  const [ev] = await calendar.findAllByCode(r.code);
+  assert.notEqual(ev.private.paymentId, oldPid);
+  const p = payments._get(ev.private.paymentId);
+  assert.deepEqual(p.body.payment_method_data, { type: 'sbp' });
+  assert.equal(p.body.confirmation.type, 'redirect');
+  assert.equal(p.body.confirmation.return_url, `https://site.test/?pay=${r.code}&t=${r.token}#booking`);
+  payments._set(ev.private.paymentId, 'succeeded');
+  assert.equal((await booking.status(r.code, r.token)).status, 'paid');
+  // старый платёж виджета вдруг прошёл — деньги возвращаются, бронь не задваивается
+  payments._set(oldPid, 'succeeded');
+  assert.equal(await booking.syncPayment(oldPid), 'refunded');
+  assert.equal(payments._refunds.length, 1);
+  await assert.rejects(booking.payBySbp(r.code, r.token), (x) => x.status === 409);
+  assert.ok(cfg);
+});

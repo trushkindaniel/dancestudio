@@ -26,6 +26,8 @@ function normalize(p) {
     metadata: p.metadata || {},
     // одноразовый токен для виджета, живёт 1 час
     confirmationToken: p.confirmation && p.confirmation.confirmation_token,
+    // СБП: ссылка на страницу ЮKassa с QR-кодом и выбором банка
+    confirmationUrl: p.confirmation && p.confirmation.confirmation_url,
     // сохранённая карта для автосписаний (постоянная бронь); данных карты здесь нет, только id и подпись
     paymentMethod: p.payment_method ? { id: p.payment_method.id, saved: Boolean(p.payment_method.saved), title: p.payment_method.title || '' } : null,
     cancelReason: p.cancellation_details ? p.cancellation_details.reason : '',
@@ -64,6 +66,14 @@ function paymentBody(cfg, b) {
   return body;
 }
 
+/** Платёж через СБП: сразу на страницу ЮKassa с QR-кодом и списком банков, потом обратно на сайт */
+function sbpBody(cfg, b) {
+  const body = paymentBody(cfg, b);
+  body.confirmation = { type: 'redirect', return_url: b.returnUrl };
+  body.payment_method_data = { type: 'sbp' };
+  return body;
+}
+
 function createYooKassa(cfg, deps = {}) {
   const fetchFn = deps.fetch || fetch;
   const auth = 'Basic ' + Buffer.from(`${cfg.payment.shopId}:${cfg.payment.secretKey}`).toString('base64');
@@ -81,6 +91,7 @@ function createYooKassa(cfg, deps = {}) {
     provider: 'yookassa',
     // Ключ идемпотентности привязан к брони: повтор запроса не создаст второй платёж
     async createPayment(b) { return normalize(await call('POST', '/payments', paymentBody(cfg, b), b.idempotenceKey || `pay-${b.code}`)); },
+    async createSbpPayment(b) { return normalize(await call('POST', '/payments', sbpBody(cfg, b), b.idempotenceKey)); },
     async getPayment(id) {
       if (!PAYMENT_ID_RE.test(String(id))) throw new Error('Некорректный id платежа');
       return normalize(await call('GET', `/payments/${encodeURIComponent(id)}`));
@@ -110,6 +121,14 @@ function createFakePayments(cfg) {
         p.payment_method = { id: b.paymentMethodId, saved: true, title: 'Bank card *4444' };
         if (autopay === 'canceled') p.cancellation_details = { reason: 'insufficient_funds' };
       }
+      payments.set(id, p);
+      return normalize(p);
+    },
+    async createSbpPayment(b) {
+      const id = `fake-${crypto.randomBytes(10).toString('hex')}`;
+      const body = sbpBody(cfg, b);
+      // имитация: «страница ЮKassa» — это возврат на сайт с кнопками «Оплатить» / «Отказаться»
+      const p = { id, status: 'pending', amount: body.amount, metadata: body.metadata, body, confirmation: { type: 'redirect', confirmation_url: `${b.returnUrl.replace('#booking', '')}&fakepay=${id}#booking` } };
       payments.set(id, p);
       return normalize(p);
     },
@@ -144,4 +163,4 @@ function createPayments(cfg, deps) {
   return null; // transfer: оплата переводом, подтверждает администратор цветом события
 }
 
-module.exports = { createPayments, createYooKassa, createFakePayments, paymentBody, PAYMENT_ID_RE };
+module.exports = { createPayments, createYooKassa, createFakePayments, paymentBody, sbpBody, PAYMENT_ID_RE };

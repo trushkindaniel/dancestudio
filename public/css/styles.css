@@ -646,3 +646,7 @@ main, .foot { overflow-x: clip; }
 .weekly-info { margin-top: 12px; padding: 14px 16px; border-radius: 14px; background: var(--bg); border: 1px solid var(--line); }
 .weekly-info p { margin: 0 0 10px; font-size: 14px; line-height: 1.55; color: var(--text); }
 .weekly-info .check { margin-bottom: 0; }
+
+/* оплата: СБП первой кнопкой над формой ЮKassa */
+.pay-sbp { margin: 4px 0 14px; }
+.pay-or { margin: 10px 0 0; text-align: center; color: var(--muted); font-size: 13px; line-height: 1.5; }
