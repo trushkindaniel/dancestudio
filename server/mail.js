@@ -105,7 +105,7 @@ const templates = {
   /** Клиенту: бронь создана, ждём оплату */
   clientCreated(cfg, b) {
     const pay = b.online
-      ? `Оплатите бронь в форме ЮKassa на сайте, она открылась после нажатия «Забронировать». Слот держится до ${b.deadlineLabel}, потом освободится автоматически.`
+      ? `Оплатите бронь в форме ЮKassa на сайте, она открылась после нажатия «Оплатить бронь онлайн». Слот держится до ${b.deadlineLabel}, потом освободится автоматически.`
       : `Переведите сумму по реквизитам. Получатель: ${cfg.requisites.recipient}. Счёт: ${cfg.requisites.account}. Банк: ${cfg.requisites.bank}. Назначение: «Аренда зала, бронь ${b.code}». Слот держится до ${b.deadlineLabel}.`;
     const subject = `Бронь ${b.code}: ${rangesOf(b).length > 1 ? b.dateLabel : when(b)}`;
     const text = `Здравствуйте, ${b.name}!\n\nБронь ${b.code} создана: ${when(b)}.\nК оплате: ${money(b.total)}.\n\n${pay}\nКак только оплата пройдёт, мы пришлём письмо с адресом и инструкцией, где взять ключ.\n\n${cfg.studioName}`;
@@ -121,7 +121,7 @@ const templates = {
   clientPaid(cfg, b) {
     const ins = instructions(cfg, b);
     const subject = `Бронь ${b.code} подтверждена: ${rangesOf(b).length > 1 ? b.dateLabel : when(b)}`;
-    const text = `Здравствуйте, ${b.name}!\n\nОплата получена, зал ваш.\n\nКогда:\n${whenLines(b).map((l) => '  ' + l).join('\n')}\nАдрес: ${cfg.venue.address}\nОплачено: ${money(b.total)}\nКод брони: ${b.code}\n\nКак попасть в зал:\n${ins.text}\n\nКарта: ${cfg.venue.mapUrl}\nВопросы: ${cfg.venue.phone}\n\nВ письме есть файл для календаря, чтобы не забыть.\n\n${cfg.studioName}`;
+    const text = `Здравствуйте, ${b.name}!\n\nОплата получена, зал ваш.\n\nКогда:\n${whenLines(b).map((l) => '  ' + l).join('\n')}\nАдрес: ${cfg.venue.address}\nОплачено: ${money(b.total)}\nКод брони: ${b.code}\n\nКак попасть в зал:\n${ins.text}\n\nКарта: ${cfg.venue.mapUrl}\nВопросы: ${cfg.venue.phone}\n\nВ письме есть файл для календаря, чтобы не забыть.${b.subUrl ? '\nЭто занятие из вашей постоянной брони. Управлять: ' + b.subUrl : ''}\n\n${cfg.studioName}`;
     const html = layout(cfg, {
       preheader: `Ключ: ${cfg.venue.keyPickup}, за несколько минут до начала`, title: 'Оплата получена, зал ваш',
       body: p(`Здравствуйте, ${esc(b.name)}!`) + table([
@@ -131,6 +131,7 @@ const templates = {
         row('Оплачено', esc(money(b.total))),
         row('Код брони', esc(b.code)),
       ]) + ins.html + button(cfg.venue.mapUrl, 'Открыть на карте') +
+        (b.subUrl ? p(`Это занятие из вашей постоянной брони. <a href="${esc(b.subUrl)}" style="color:#b0707f;">Управлять или отменить</a>.`) : '') +
         p(`<span style="color:#7a6a5c;font-size:13px;">Добавьте аренду в календарь: файл во вложении. Вопросы — по телефону ${esc(nb(cfg.venue.phone))}.</span>`),
     });
     return { subject, text, html, attachments: [{ filename: `bron-${b.code}.ics`, content: icsEvent(cfg, b), contentType: 'text/calendar; charset=utf-8; method=PUBLISH' }] };
@@ -183,4 +184,98 @@ const templates = {
   },
 };
 
-module.exports = { templates, pickupTime, icsEvent, esc };
+
+const fmtWhen = (iso, tz) => new Date(iso).toLocaleString('ru-RU', { timeZone: tz, day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
+const DECLINE = {
+  insufficient_funds: 'на карте недостаточно средств',
+  card_expired: 'истёк срок действия карты',
+  permission_revoked: 'вы отключили автосписания для этой карты',
+  payment_method_restricted: 'банк ограничил операции по карте',
+};
+
+/**
+ * Письма постоянной брони. s — сведения о ней: id, name, email, schedule («каждую среду 12:00–13:00»),
+ * weekTotal, weeks, chargeDaysBefore, card, url (ссылка управления) и поля конкретного события.
+ */
+const subTemplates = {
+  started(cfg, s) {
+    const rule = `Оплата ${money(s.weekTotal)} за каждое следующее занятие спишется с карты ${s.card} автоматически за ${s.chargeDaysBefore} дн. до занятия. Перед каждым занятием придёт письмо с инструкцией и чек.`;
+    const subject = `Постоянная бронь оформлена: ${s.schedule}`;
+    const text = `Здравствуйте, ${s.name}!\n\nПостоянная бронь оформлена: ${s.schedule}.\nЗа вами закреплено время на ${s.weeks} недель вперёд, дальше бронь продлевается сама.\n${(s.reserved || []).map((l) => '  ' + l).join('\n')}\n\n${rule}\n\nОтменить постоянную бронь можно в любой момент: ${s.url}\nОплаченные занятия останутся за вами.\n\n${cfg.studioName}`;
+    const html = layout(cfg, {
+      preheader: s.schedule, title: 'Постоянная бронь оформлена',
+      body: p(`Здравствуйте, ${esc(s.name)}!`) + table([
+        row('Когда', esc(s.schedule)),
+        row('За неделю', esc(money(s.weekTotal))),
+        row('Карта', esc(s.card)),
+      ]) + p(`За вами закреплено время на ${s.weeks} недель вперёд, дальше бронь продлевается сама.`) +
+        ((s.reserved || []).length ? p(`<span style="color:#7a6a5c;font-size:14px;">Следующие занятия: ${(s.reserved || []).map(esc).join('; ')}</span>`) : '') +
+        p(esc(rule)) + button(s.url, 'Управлять постоянной бронью') +
+        p('<span style="color:#7a6a5c;font-size:13px;">Отменить можно в любой момент по этой ссылке, оплаченные занятия останутся за вами.</span>'),
+    });
+    return { subject, text, html };
+  },
+
+  card_not_saved(cfg, s) {
+    const subject = 'Постоянную бронь оформить не удалось';
+    const msg = 'Оплата первого занятия прошла, оно за вами. Но карту для автосписаний сохранить не удалось (этот способ оплаты не поддерживает повторные списания), поэтому следующие недели мы освободили.';
+    const text = `Здравствуйте, ${s.name}!\n\n${msg}\nЧтобы оформить постоянную бронь, выберите время на сайте ещё раз и оплатите банковской картой. Вопросы: ${cfg.venue.phone}.\n\n${cfg.studioName}`;
+    const html = layout(cfg, { preheader: msg, title: 'Постоянную бронь оформить не удалось', body: p(`Здравствуйте, ${esc(s.name)}!`) + p(esc(msg)) + p(`Чтобы оформить постоянную бронь, выберите время на сайте ещё раз и оплатите банковской картой. Вопросы: ${esc(nb(cfg.venue.phone))}.`) });
+    return { subject, text, html };
+  },
+
+  charge_failed(cfg, s) {
+    const why = DECLINE[s.reason] ? ` (${DECLINE[s.reason]})` : '';
+    const subject = `Не удалось списать оплату за ${s.weekLabel}`;
+    const text = `Здравствуйте, ${s.name}!\n\nНе удалось списать ${money(s.amount)} с карты ${s.card} за занятие ${s.weekLabel}${why}.\nПопробуем ещё раз ${fmtWhen(s.nextTryAt, cfg.tz)}. Если до начала останется меньше суток, а оплаты не будет, занятие освободится и постоянная бронь встанет на паузу.\nПроверьте карту или позвоните нам: ${cfg.venue.phone}.\nУправлять бронью: ${s.url}\n\n${cfg.studioName}`;
+    const html = layout(cfg, {
+      preheader: `Не прошло списание ${money(s.amount)}`, title: 'Не удалось списать оплату',
+      body: p(`Здравствуйте, ${esc(s.name)}!`) + p(`Не удалось списать <b>${esc(money(s.amount))}</b> с карты ${esc(s.card)} за занятие <b>${esc(s.weekLabel)}</b>${esc(why)}.`) +
+        p(`Попробуем ещё раз ${esc(fmtWhen(s.nextTryAt, cfg.tz))}. Если до начала останется меньше суток, а оплаты не будет, занятие освободится и постоянная бронь встанет на паузу.`) +
+        p(`Проверьте карту или позвоните нам: ${esc(nb(cfg.venue.phone))}.`) + button(s.url, 'Управлять постоянной бронью'),
+    });
+    return { subject, text, html };
+  },
+
+  paused(cfg, s) {
+    const subject = `Постоянная бронь на паузе: ${s.schedule}`;
+    const msg = `Оплата за занятие ${s.weekLabel} не прошла, поэтому мы освободили это время и следующие закреплённые недели.`;
+    const text = `Здравствуйте, ${s.name}!\n\n${msg}\nЧтобы снова закрепить время, позвоните нам (${cfg.venue.phone}) или оформите постоянную бронь на сайте заново.\n\n${cfg.studioName}`;
+    const html = layout(cfg, { preheader: msg, title: 'Постоянная бронь на паузе', body: p(`Здравствуйте, ${esc(s.name)}!`) + p(esc(msg)) + p(`Чтобы снова закрепить время, позвоните нам (${esc(nb(cfg.venue.phone))}) или оформите постоянную бронь на сайте заново.`) });
+    return { subject, text, html };
+  },
+
+  skipped(cfg, s) {
+    const subject = `Время ${s.weekLabel} занято`;
+    const msg = `На ${s.weekLabel} время уже было занято, поэтому эту неделю закрепить не получилось. Остальные занятия постоянной брони остаются за вами, оплата за эту неделю не спишется.`;
+    const text = `Здравствуйте, ${s.name}!\n\n${msg}\nВопросы: ${cfg.venue.phone}.\n\n${cfg.studioName}`;
+    const html = layout(cfg, { preheader: msg, title: 'Одна неделя занята', body: p(`Здравствуйте, ${esc(s.name)}!`) + p(esc(msg)) + button(s.url, 'Управлять постоянной бронью') });
+    return { subject, text, html };
+  },
+
+  cancelled(cfg, s) {
+    const subject = `Постоянная бронь отменена: ${s.schedule}`;
+    const msg = 'Постоянная бронь отменена. Будущие неоплаченные занятия освобождены, автосписаний больше не будет. Уже оплаченные занятия остаются за вами.';
+    const text = `Здравствуйте, ${s.name}!\n\n${msg}\n\n${cfg.studioName}`;
+    const html = layout(cfg, { preheader: msg, title: 'Постоянная бронь отменена', body: p(`Здравствуйте, ${esc(s.name)}!`) + p(esc(msg)) });
+    return { subject, text, html };
+  },
+};
+
+/** Администратору: что произошло с постоянной бронью */
+const ADMIN_TITLE = {
+  started: 'оформлена', card_not_saved: 'карта не сохранилась, недели освобождены', charge_failed: 'не прошло списание',
+  paused: 'на паузе: не оплачено к сроку, время освобождено', skipped: 'неделя пропущена: время занято', cancelled: 'отменена клиентом',
+};
+function adminSub(cfg, kind, s) {
+  const title = `Постоянная бронь ${s.id}: ${ADMIN_TITLE[kind] || kind}`;
+  const lines = [
+    `Клиент: ${s.name}, ${s.phone}${s.email ? ', ' + s.email : ''}`,
+    `Расписание: ${s.schedule}, ${money(s.weekTotal)} в неделю`,
+    s.weekLabel ? `Занятие: ${s.weekLabel}` : null,
+    s.reason ? `Причина отказа банка: ${s.reason}` : null,
+  ].filter(Boolean);
+  return { subject: title, text: lines.join('\n'), html: layout(cfg, { preheader: title, title, body: lines.map((l) => p(esc(l))).join('') }) };
+}
+
+module.exports = { templates, subTemplates, adminSub, pickupTime, icsEvent, esc };

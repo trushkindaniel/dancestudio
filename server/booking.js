@@ -10,7 +10,7 @@ const T = require('./time');
 
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 // редакция текста согласия на обработку ПДн (public/consent.html); менять вместе с текстом
-const CONSENT_VERSION = '2026-11-17';
+const CONSENT_VERSION = '2026-11-18';
 const CODE_RE = /^[A-Z2-9]{4}$/;
 const TOKEN_RE = /^[0-9a-f]{24}$/;
 
@@ -28,6 +28,8 @@ function createBookingService({ calendar, cfg, notify, payments = null, now = ()
   // Двое могут нажать «Забронировать» одновременно, а уведомление ЮKassa может прийти одновременно с фоновой проверкой.
   // Всё, что меняет брони, выполняем по очереди. Работает, пока сервер запущен в одном экземпляре.
   let chain = Promise.resolve();
+  let subs = null;   // сервис постоянных броней, подключается после создания (setSubscriptions)
+  let hooks = {};    // onPaid(events, payment), onDropped(events) — вызываются под замком
   const withLock = (fn) => {
     const run = chain.then(() => fn());
     chain = run.catch(() => {});
@@ -61,6 +63,7 @@ function createBookingService({ calendar, cfg, notify, payments = null, now = ()
     return {
       code: p.code, name: p.name, email: p.email, phone: p.phone, total,
       purpose: p.purpose || '', people: p.people || '',
+      sub: p.sub || '', week: p.week !== undefined ? Number(p.week) : null, subUrl: p.subUrl || '',
       ranges, whenLabel, hoursTotal: ranges.reduce((t, r) => t + r.hours, 0),
       // поля первого промежутка: шаблоны для одной брони работают как раньше
       date: first.date, startHour: first.startHour, endHour: first.endHour, start: first.start, end: first.end,
@@ -99,108 +102,147 @@ function createBookingService({ calendar, cfg, notify, payments = null, now = ()
 
   const fmtDeadline = (d) => d.toLocaleString('ru-RU', { timeZone: cfg.tz, hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'long' });
 
+  /** Промежутки заявки → части брони с ценой */
+  function toParts(ranges) {
+    return ranges.map((r) => ({ ...r, first: r.hours[0], last: r.hours[r.hours.length - 1], total: priceFor(r.hours, cfg).total }));
+  }
+
+  /**
+   * Создать события одной брони в календаре (без оплаты). Вызывать под замком.
+   * c — контакты клиента; status — pending (ждёт оплаты) или reserved (закреплено постоянной бронью).
+   */
+  async function createEvents({ code, token, parts, c, status, expiresAt, extra = {}, icon, tail = [], consentAt }) {
+    const total = parts.reduce((t, r) => t + r.total, 0);
+    const allLabels = parts.map((r) => { const lb = labels(r.date, r.first, r.last); return `${lb.dateLabel}, ${lb.timeLabel}`; });
+    const at = consentAt || now().toISOString();
+    const created = [];
+    const privs = [];
+    try {
+      for (let i = 0; i < parts.length; i++) {
+        const r = parts[i];
+        const lb = labels(r.date, r.first, r.last);
+        const partTag = parts.length > 1 ? ` (${i + 1}/${parts.length})` : '';
+        const priv = {
+          managed: '1', code, status, token, date: r.date, hours: `${r.first}-${r.last}`,
+          name: c.name, phone: c.phone, email: c.email || '', total: String(r.total), orderTotal: String(total),
+          part: `${i + 1}/${parts.length}`,
+          purpose: c.purposeLabel || '', people: c.people ? String(c.people) : '',
+          pay: payments ? payments.provider : 'transfer',
+          // когда дано согласие на обработку ПДн и какая редакция текста (/consent) действовала
+          pdConsentAt: at, pdConsentDoc: CONSENT_VERSION,
+          ...(expiresAt ? { expiresAt } : {}),
+          ...extra,
+        };
+        const ev = await calendar.createEvent({
+          summary: `${icon} ${code}${partTag} · ${c.name} · ${lb.timeLabel} · ${r.total} ₽${extra.sub ? ' · постоянная' : ''}`,
+          description: [
+            `Бронь ${code}${partTag}: ${lb.dateLabel}, ${lb.timeLabel}`,
+            parts.length > 1 ? `Вся бронь: ${allLabels.join('; ')} — всего ${total} ₽` : null,
+            `Клиент: ${c.name}`, `Телефон: ${c.phone}`, `Почта: ${c.email || 'не указана'}`,
+            c.purposeLabel ? `Формат: ${c.purposeLabel}` : null,
+            c.people ? `Человек: ${c.people}` : null,
+            c.note ? `Комментарий: ${c.note}` : null,
+            `К оплате за этот промежуток: ${r.total} ₽`,
+            `Согласие на обработку персональных данных: дано ${at.slice(0, 16).replace('T', ' ')} UTC, редакция ${CONSENT_VERSION}`,
+            '',
+            ...tail,
+          ].filter((x) => x !== null).join('\n'),
+          colorId: cfg.pendingColorId,
+          start: T.zonedToUtc(r.date, r.first, cfg.tz),
+          end: T.zonedToUtc(r.date, r.last + 1, cfg.tz),
+          localStart: T.localDateTime(r.date, r.first),
+          localEnd: T.localDateTime(r.date, r.last + 1),
+          private: priv,
+        });
+        created.push(ev.id);
+        privs.push(priv);
+      }
+    } catch (e) {
+      for (const id of created) await calendar.deleteEvent(id).catch(() => {});
+      throw e;
+    }
+    return { created, privs, total };
+  }
+
+  /**
+   * Бронь, ждущая оплаты: события ⏳ и платёж для виджета. Вызывать под замком.
+   * opts.extra — служебные поля (постоянная бронь), opts.savePaymentMethod — сохранить карту для автосписаний.
+   */
+  async function createOrder(v, opts = {}) {
+    const code = await uniqueCode();
+    const token = crypto.randomBytes(12).toString('hex');
+    const deadline = new Date(now().getTime() + cfg.holdMinutes * 60000);
+    const online = Boolean(payments);
+    const parts = toParts(v.ranges);
+    const hoursCount = parts.reduce((t, r) => t + r.hours.length, 0);
+
+    // В Яндекс Календаре (CalDAV) цвет события не меняется: статус показывает значок ⏳/✅ в названии
+    const byIcon = calendar.driver === 'caldav';
+    const dl = T.nowInTz(deadline, cfg.tz);
+    const until = `Если оплаты не будет до ${dl.date} ${T.pad(Math.floor(dl.minutes / 60))}:${T.pad(dl.minutes % 60)}, события удалятся сами.`;
+    const howToConfirm = online
+      ? [`Оплата онлайн через виджет ЮKassa на сайте. Когда платёж пройдёт, сайт сам ${byIcon ? 'заменит ⏳ на ✅ в названии' : 'покрасит события брони в зелёный'} и напишет клиенту.`, until]
+      : [byIcon ? 'Оплата пришла? Замените ⏳ на ✅ в названии любого события брони: подтвердится вся бронь.' : 'Оплата пришла? Покрасьте событие в зелёный цвет («Базилик»): подтвердится вся бронь.', until];
+
+    const { created, privs, total } = await createEvents({
+      code, token, parts, c: v, status: 'pending', expiresAt: deadline.toISOString(), extra: opts.extra || {}, icon: '⏳', tail: howToConfirm,
+    });
+
+    const order = describe(privs);
+    let confirmationToken = null;
+    let paymentId = null;
+    if (online) {
+      try {
+        const p = await payments.createPayment({
+          code, total, date: parts[0].date, hours: `${parts[0].first}-${parts[0].last}`, hoursCount, email: v.email, phone: v.phone,
+          dateLabel: parts.length > 1 ? order.dateLabel : order.ranges[0].dateLabel,
+          timeLabel: parts.length > 1 ? `${hoursCount} ч` : order.ranges[0].timeLabel,
+          idempotenceKey: `pay-${code}-${deadline.getTime()}`,
+          savePaymentMethod: Boolean(opts.savePaymentMethod),
+          sub: opts.extra && opts.extra.sub, week: opts.extra && opts.extra.week,
+        });
+        if (!p.confirmationToken) throw new Error('ЮKassa не вернула токен для виджета');
+        confirmationToken = p.confirmationToken;
+        paymentId = p.id;
+        for (let i = 0; i < created.length; i++) await calendar.patchEvent(created[i], { private: { ...privs[i], paymentId: p.id } });
+      } catch (e) {
+        log.error(`[pay] бронь ${code}: не удалось создать платёж:`, e.message);
+        for (const id of created) await calendar.deleteEvent(id).catch(() => {});
+        throw new AppError(502, 'payment_unavailable', 'Платёжный сервис сейчас не отвечает. Попробуйте ещё раз через пару минут.');
+      }
+    }
+    return { code, token, deadline, parts, order, online, confirmationToken, paymentId, created, total };
+  }
+
+  /** Ответ браузеру после создания брони */
+  function orderResponse(o) {
+    const first = o.parts[0];
+    const res = {
+      code: o.code, token: o.token, total: o.total, deadline: o.deadline.toISOString(),
+      date: first.date, hours: first.hours,                       // первый промежуток (совместимость)
+      ranges: o.order.ranges.map((r) => ({ date: r.date, startHour: r.startHour, endHour: r.endHour, total: r.total, dateLabel: r.dateLabel, timeLabel: r.timeLabel })),
+      dateLabel: o.order.dateLabel, timeLabel: o.order.timeLabel, whenLabel: o.order.whenLabel,
+    };
+    if (o.online) res.payment = { provider: payments.provider, confirmationToken: o.confirmationToken };
+    else res.requisites = cfg.requisites;
+    return res;
+  }
+
   async function book(input) {
+    // постоянная бронь «каждую неделю» — отдельный сервис (server/subscriptions.js)
+    if (input && input.recurring === true) {
+      if (!subs) throw new AppError(400, 'subs_off', 'Постоянная бронь пока недоступна, оформите разовую');
+      return subs.book(input);
+    }
     const v = validateOrder(input, cfg, now());
     return withLock(async () => {
       for (const r of v.ranges) {
         const busy = (await getBusy(r.date, r.date))[r.date];
         if (r.hours.some((h) => busy.includes(h))) throw new AppError(409, 'slot_taken', 'Часть выбранного времени только что заняли, выберите другое');
       }
-
-      const code = await uniqueCode();
-      const token = crypto.randomBytes(12).toString('hex');
-      const deadline = new Date(now().getTime() + cfg.holdMinutes * 60000);
-      const online = Boolean(payments);
-      const parts = v.ranges.map((r) => ({ ...r, first: r.hours[0], last: r.hours[r.hours.length - 1], total: priceFor(r.hours, cfg).total }));
-      const total = parts.reduce((t, r) => t + r.total, 0);
-      const hoursCount = parts.reduce((t, r) => t + r.hours.length, 0);
-      const allLabels = parts.map((r) => { const lb = labels(r.date, r.first, r.last); return `${lb.dateLabel}, ${lb.timeLabel}`; });
-
-      // В Яндекс Календаре (CalDAV) цвет события не меняется: статус показывает значок ⏳/✅ в названии
-      const byIcon = calendar.driver === 'caldav';
-      const dl = T.nowInTz(deadline, cfg.tz);
-      const until = `Если оплаты не будет до ${dl.date} ${T.pad(Math.floor(dl.minutes / 60))}:${T.pad(dl.minutes % 60)}, события удалятся сами.`;
-      const howToConfirm = online
-        ? [`Оплата онлайн через виджет ЮKassa на сайте. Когда платёж пройдёт, сайт сам ${byIcon ? 'заменит ⏳ на ✅ в названии' : 'покрасит события брони в зелёный'} и напишет клиенту.`, until]
-        : [byIcon ? 'Оплата пришла? Замените ⏳ на ✅ в названии любого события брони: подтвердится вся бронь.' : 'Оплата пришла? Покрасьте событие в зелёный цвет («Базилик»): подтвердится вся бронь.', until];
-
-      const created = [];
-      const privs = [];
-      try {
-        for (let i = 0; i < parts.length; i++) {
-          const r = parts[i];
-          const lb = labels(r.date, r.first, r.last);
-          const partTag = parts.length > 1 ? ` (${i + 1}/${parts.length})` : '';
-          const priv = {
-            managed: '1', code, status: 'pending', token, date: r.date, hours: `${r.first}-${r.last}`,
-            name: v.name, phone: v.phone, email: v.email, total: String(r.total), orderTotal: String(total),
-            part: `${i + 1}/${parts.length}`, expiresAt: deadline.toISOString(),
-            purpose: v.purposeLabel || '', people: v.people ? String(v.people) : '',
-            pay: online ? payments.provider : 'transfer',
-            // когда дано согласие на обработку ПДн и какая редакция текста (/consent) действовала
-            pdConsentAt: now().toISOString(), pdConsentDoc: CONSENT_VERSION,
-          };
-          const ev = await calendar.createEvent({
-            summary: `⏳ ${code}${partTag} · ${v.name} · ${lb.timeLabel} · ${r.total} ₽`,
-            description: [
-              `Бронь ${code}${partTag}: ${lb.dateLabel}, ${lb.timeLabel}`,
-              parts.length > 1 ? `Вся бронь: ${allLabels.join('; ')} — всего ${total} ₽` : null,
-              `Клиент: ${v.name}`, `Телефон: ${v.phone}`, `Почта: ${v.email || 'не указана'}`,
-              v.purposeLabel ? `Формат: ${v.purposeLabel}` : null,
-              v.people ? `Человек: ${v.people}` : null,
-              v.note ? `Комментарий: ${v.note}` : null,
-              `К оплате за этот промежуток: ${r.total} ₽`,
-              `Согласие на обработку персональных данных: дано ${now().toISOString().slice(0, 16).replace('T', ' ')} UTC, редакция ${CONSENT_VERSION}`,
-              '',
-              ...howToConfirm,
-            ].filter((x) => x !== null).join('\n'),
-            colorId: cfg.pendingColorId,
-            start: T.zonedToUtc(r.date, r.first, cfg.tz),
-            end: T.zonedToUtc(r.date, r.last + 1, cfg.tz),
-            localStart: T.localDateTime(r.date, r.first),
-            localEnd: T.localDateTime(r.date, r.last + 1),
-            private: priv,
-          });
-          created.push(ev.id);
-          privs.push(priv);
-        }
-      } catch (e) {
-        for (const id of created) await calendar.deleteEvent(id).catch(() => {});
-        throw e;
-      }
-
-      const order = describe(privs);
-      let confirmationToken = null;
-      if (online) {
-        try {
-          const p = await payments.createPayment({
-            code, total, date: parts[0].date, hours: `${parts[0].first}-${parts[0].last}`, hoursCount, email: v.email, phone: v.phone,
-            dateLabel: parts.length > 1 ? order.dateLabel : order.ranges[0].dateLabel,
-            timeLabel: parts.length > 1 ? `${hoursCount} ч` : order.ranges[0].timeLabel,
-            idempotenceKey: `pay-${code}-${deadline.getTime()}`,
-          });
-          if (!p.confirmationToken) throw new Error('ЮKassa не вернула токен для виджета');
-          confirmationToken = p.confirmationToken;
-          for (let i = 0; i < created.length; i++) await calendar.patchEvent(created[i], { private: { ...privs[i], paymentId: p.id } });
-        } catch (e) {
-          log.error(`[pay] бронь ${code}: не удалось создать платёж:`, e.message);
-          for (const id of created) await calendar.deleteEvent(id).catch(() => {});
-          throw new AppError(502, 'payment_unavailable', 'Платёжный сервис сейчас не отвечает. Попробуйте ещё раз через пару минут.');
-        }
-      }
-
-      await notify.created({ ...order, online, deadlineLabel: fmtDeadline(deadline) });
-
-      const first = parts[0];
-      const res = {
-        code, token, total, deadline: deadline.toISOString(),
-        date: first.date, hours: first.hours,                       // первый промежуток (совместимость)
-        ranges: order.ranges.map((r) => ({ date: r.date, startHour: r.startHour, endHour: r.endHour, total: r.total, dateLabel: r.dateLabel, timeLabel: r.timeLabel })),
-        dateLabel: order.dateLabel, timeLabel: order.timeLabel, whenLabel: order.whenLabel,
-      };
-      if (online) res.payment = { provider: payments.provider, confirmationToken };
-      else res.requisites = cfg.requisites;
-      return res;
+      const o = await createOrder(v);
+      await notify.created({ ...o.order, online: o.online, deadlineLabel: fmtDeadline(o.deadline) });
+      return orderResponse(o);
     });
   }
 
@@ -220,6 +262,7 @@ function createBookingService({ calendar, cfg, notify, payments = null, now = ()
       if (!evs) throw new AppError(404, 'not_found', 'Бронь не найдена');
       if (evs.some((e) => e.private.status !== 'pending')) throw new AppError(409, 'not_cancellable', 'Оплаченную бронь отменяет администратор, напишите нам');
       for (const e of evs) await calendar.deleteEvent(e.id);
+      if (hooks.onDropped) await hooks.onDropped(evs);
       await notify.cancelled(describe(evs));
       return { ok: true };
     });
@@ -230,7 +273,7 @@ function createBookingService({ calendar, cfg, notify, payments = null, now = ()
     for (const ev of evs) {
       if (ev.private.status === 'paid') continue;
       await calendar.patchEvent(ev.id, {
-        summary: ev.summary.replace('⏳', '✅'),
+        summary: ev.summary.replace(/⏳|🔁/u, '✅'),
         colorId: cfg.paidColorId,
         private: { ...ev.private, status: 'paid', paidAt: at, ...extra },
       });
@@ -257,6 +300,7 @@ function createBookingService({ calendar, cfg, notify, payments = null, now = ()
         if (ours && evs.every((e) => e.private.status === 'paid')) return 'paid';
         if (ours && sum === p.amount) {
           await markPaid(evs, { paymentId: p.id });
+          if (hooks.onPaid) await hooks.onPaid(evs, p);
           return 'paid';
         }
         // Деньги пришли, а брони уже нет (срок вышел, клиент отменил) или сумма не та: возвращаем автоматически
@@ -270,6 +314,7 @@ function createBookingService({ calendar, cfg, notify, payments = null, now = ()
       if (p.status === 'canceled') {
         if (ours && evs.every((e) => e.private.status === 'pending')) {
           for (const e of evs) await calendar.deleteEvent(e.id);
+          if (hooks.onDropped) await hooks.onDropped(evs);
           await notify.expired({ ...describe(evs), reason: 'payment_canceled' });
           return 'released';
         }
@@ -331,6 +376,7 @@ function createBookingService({ calendar, cfg, notify, payments = null, now = ()
             const fresh = (await calendar.findAllByCode(code)).filter((e) => e.private.status === 'pending');
             if (!fresh.length) return;
             for (const e of fresh) await calendar.deleteEvent(e.id);
+            if (hooks.onDropped) await hooks.onDropped(fresh);
             await notify.expired(describe(fresh));
             result.expired++;
           });
@@ -343,7 +389,12 @@ function createBookingService({ calendar, cfg, notify, payments = null, now = ()
     return result;
   }
 
-  return { getBusy, book, cancel, status, syncPayment, sweep };
+  return {
+    getBusy, book, cancel, status, syncPayment, sweep,
+    setSubscriptions(s, h) { subs = s; hooks = h || {}; },
+    // для server/subscriptions.js
+    _internal: { withLock, describe, labels, toParts, uniqueCode, createEvents, createOrder, orderResponse, markPaid, fmtDeadline },
+  };
 }
 
 module.exports = { createBookingService };

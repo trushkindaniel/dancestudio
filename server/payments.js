@@ -26,6 +26,9 @@ function normalize(p) {
     metadata: p.metadata || {},
     // одноразовый токен для виджета, живёт 1 час
     confirmationToken: p.confirmation && p.confirmation.confirmation_token,
+    // сохранённая карта для автосписаний (постоянная бронь); данных карты здесь нет, только id и подпись
+    paymentMethod: p.payment_method ? { id: p.payment_method.id, saved: Boolean(p.payment_method.saved), title: p.payment_method.title || '' } : null,
+    cancelReason: p.cancellation_details ? p.cancellation_details.reason : '',
   };
 }
 
@@ -39,6 +42,11 @@ function paymentBody(cfg, b) {
     description,
     metadata: { code: b.code, date: b.date, hours: b.hours },
   };
+  // постоянная бронь: первая оплата сохраняет карту, следующие списываются с неё без участия клиента
+  if (b.savePaymentMethod) body.save_payment_method = true;
+  if (b.paymentMethodId) { delete body.confirmation; body.payment_method_id = b.paymentMethodId; }
+  if (b.sub) body.metadata.sub = b.sub;
+  if (b.week !== undefined && b.week !== null) body.metadata.week = String(b.week);
   if (cfg.payment.receipt) {
     body.receipt = {
       // чек приходит на почту, а если её нет — СМС на телефон (формат ЮKassa: 79001234567)
@@ -88,13 +96,22 @@ function createYooKassa(cfg, deps = {}) {
 function createFakePayments(cfg) {
   const payments = new Map();
   const refunds = [];
+  let autopay = 'succeeded';                         // чем закончится следующее автосписание (для тестов)
+  let noSave = false;                                // карту не удалось сохранить (автоплатежи не включены)
   return {
     provider: 'fake',
     async createPayment(b) {
       const id = `fake-${crypto.randomBytes(10).toString('hex')}`;
       const body = paymentBody(cfg, b);
-      payments.set(id, { id, status: 'pending', amount: body.amount, metadata: body.metadata, body, confirmation: { type: 'embedded', confirmation_token: id } });
-      return normalize(payments.get(id));
+      const p = { id, status: 'pending', amount: body.amount, metadata: body.metadata, body, confirmation: { type: 'embedded', confirmation_token: id } };
+      if (b.paymentMethodId) {                       // автосписание с сохранённой карты: ответ сразу
+        delete p.confirmation;
+        p.status = autopay;
+        p.payment_method = { id: b.paymentMethodId, saved: true, title: 'Bank card *4444' };
+        if (autopay === 'canceled') p.cancellation_details = { reason: 'insufficient_funds' };
+      }
+      payments.set(id, p);
+      return normalize(p);
     },
     async getPayment(id) {
       const p = payments.get(id);
@@ -106,7 +123,16 @@ function createFakePayments(cfg) {
       return { id: `refund-${id}`, status: 'succeeded' };
     },
     /** Только для разработки и тестов */
-    _set(id, status) { const p = payments.get(id); if (p) p.status = status; return p; },
+    _set(id, status) {
+      const p = payments.get(id);
+      if (!p) return p;
+      p.status = status;
+      // как ЮKassa: при успешной оплате с save_payment_method карта сохраняется
+      if (status === 'succeeded' && p.body.save_payment_method && !p.payment_method) p.payment_method = { id: `pm-${id}`, saved: !noSave, title: 'Bank card *4444' };
+      return p;
+    },
+    _autopay(status) { autopay = status; },
+    _noSave(v) { noSave = v; },
     _get: (id) => payments.get(id),
     _refunds: refunds,
   };

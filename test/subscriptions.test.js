@@ -1,0 +1,218 @@
+'use strict';
+/* Постоянная бронь «каждую неделю»: оформление, первая оплата с сохранением карты, автосписание,
+   отказ банка, пауза, продление, отмена. Календарь в памяти, ЮKassa — имитация, часы управляемые. */
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const { buildConfig } = require('../server/config');
+const { createMemoryCalendar } = require('../server/calendar/memory');
+const { createBookingService } = require('../server/booking');
+const { createFakePayments } = require('../server/payments');
+const { createJsonStore } = require('../server/store');
+const { createSubscriptionService } = require('../server/subscriptions');
+const T = require('../server/time');
+
+const NOW = new Date('2026-11-09T07:00:00Z'); // понедельник, 10:00 МСК
+const H = 3600000;
+
+function env(extra = {}) {
+  const cfg = buildConfig({
+    CALENDAR_DRIVER: 'memory', PAYMENT_PROVIDER: 'fake', STUDIO_TZ: 'Europe/Moscow', SLOT_HOURS: '1', SUBSCRIPTIONS: '1', BASE_URL: 'https://site.test', ...extra,
+  });
+  const clock = { now: NOW };
+  const now = () => clock.now;
+  const calendar = createMemoryCalendar();
+  const payments = createFakePayments(cfg);
+  const sent = [];
+  const notify = Object.fromEntries(['created', 'paid', 'expired', 'cancelled', 'refunded'].map((k) => [k, async (b) => sent.push([k, b])]));
+  notify.subscription = async (kind, s) => sent.push(['sub:' + kind, s]);
+  const log = { error() {}, log() {} };
+  const booking = createBookingService({ calendar, cfg, notify, payments, now, log });
+  const store = createJsonStore(null);
+  const subs = createSubscriptionService({ calendar, cfg, notify, payments, booking, store, now, log });
+  booking.setSubscriptions(subs, subs.hooks);
+  return { cfg, clock, calendar, payments, sent, booking, store, subs };
+}
+
+const form = (over = {}) => ({
+  ranges: [{ date: '2026-11-11', hours: [12] }], recurring: true, autopayConsent: true,
+  name: 'Ирина', phone: '+7 900 123-45-67', email: 'irina@example.com', note: '', consent: true, pdConsent: true, website: '', ...over,
+});
+const at = (date, hour) => T.zonedToUtc(date, hour, 'Europe/Moscow');
+const kinds = (sent) => sent.map((x) => x[0]);
+
+async function startActive(e) {
+  const r = await e.booking.book(form());
+  const [ev] = await e.calendar.findAllByCode(r.code);
+  e.payments._set(ev.private.paymentId, 'succeeded');
+  await e.booking.syncPayment(ev.private.paymentId);
+  return { r, sub: e.store.get(r.subscription.id) };
+}
+
+test('оформление: первая неделя ждёт оплаты, следующие 7 закреплены 🔁 и заняты для других', async () => {
+  const e = env();
+  const r = await e.booking.book(form());
+  assert.equal(r.subscription.weeks, 8);
+  assert.match(r.subscription.schedule, /каждую среду 12:00–13:00/);
+  assert.ok(r.payment.confirmationToken);
+  const sub = e.store.get(r.subscription.id);
+  assert.equal(sub.status, 'pending');
+  assert.equal(sub.weeks.length, 8);
+  assert.equal(sub.weeks.filter((w) => w.status === 'reserved').length, 7);
+  // первая оплата сохраняет карту
+  const [ev0] = await e.calendar.findAllByCode(r.code);
+  assert.equal(e.payments._get(ev0.private.paymentId).body.save_payment_method, true);
+  // через неделю время занято для разовой брони
+  const busy = await e.booking.getBusy('2026-11-18', '2026-11-18');
+  assert.ok(busy['2026-11-18'].includes(12));
+  const w3 = await e.calendar.findAllByCode(sub.weeks[3].code);
+  assert.match(w3[0].summary, /^🔁 .*постоянная/);
+});
+
+test('оформление: нужны почта, согласие на автосписание и время в пределах недели', async () => {
+  const e = env();
+  await assert.rejects(e.booking.book(form({ email: '' })), (x) => x.status === 400 && Boolean(x.fields.email));
+  await assert.rejects(e.booking.book(form({ autopayConsent: false })), (x) => x.status === 400 && Boolean(x.fields.autopayConsent));
+  await assert.rejects(e.booking.book(form({ ranges: [{ date: '2026-11-11', hours: [12] }, { date: '2026-11-18', hours: [12] }] })), (x) => x.status === 400 && Boolean(x.fields.hours));
+});
+
+test('оформление: если в какую-то неделю время занято — 409 со списком дат, ничего не создаётся', async () => {
+  const e = env();
+  await e.booking.book({ ranges: [{ date: '2026-12-02', hours: [12] }], name: 'Другой', phone: '+7 900 000-00-00', email: '', note: '', consent: true, pdConsent: true, website: '' });
+  const before = e.calendar._size();
+  await assert.rejects(e.booking.book(form()), (x) => x.status === 409 && /2 декабря/.test(x.message) && x.fields.conflicts.length === 1);
+  assert.equal(e.calendar._size(), before);
+  assert.equal(e.store.all().length, 0);
+});
+
+test('первая оплата прошла и карта сохранилась → постоянная бронь активна, письмо со ссылкой', async () => {
+  const e = env();
+  const { sub } = await startActive(e);
+  assert.equal(sub.status, 'active');
+  assert.ok(sub.paymentMethod.id);
+  const started = e.sent.find((x) => x[0] === 'sub:started')[1];
+  assert.match(started.url, /^https:\/\/site\.test\/subscription\?id=S[A-Z2-9]{6}&t=[0-9a-f]{24}$/);
+  assert.equal(started.reserved.length, 7);
+  // письмо об оплате первого занятия знает о постоянной брони
+  assert.ok(e.sent.find((x) => x[0] === 'paid')[1].subUrl);
+});
+
+test('автосписание за 3 дня до занятия: 🔁 → ✅, письмо об оплате; раньше срока ничего не списывается', async () => {
+  const e = env();
+  const { sub } = await startActive(e);
+  e.clock.now = new Date(at('2026-11-15', 11).getTime());          // за 3 дня минус час — рано
+  await e.subs.tick();
+  assert.equal(sub.weeks.find((w) => w.k === 1).status, 'reserved');
+  e.clock.now = new Date(at('2026-11-15', 12).getTime() + 60000);  // ровно за 3 дня — списываем
+  e.sent.length = 0;
+  await e.subs.tick();
+  const w1 = sub.weeks.find((w) => w.k === 1);
+  assert.equal(w1.status, 'paid');
+  const evs = await e.calendar.findAllByCode(w1.code);
+  assert.match(evs[0].summary, /^✅/);
+  assert.equal(evs[0].private.status, 'paid');
+  const p = e.payments._get(w1.paymentId);
+  assert.equal(p.body.payment_method_id, sub.paymentMethod.id);
+  assert.equal(p.body.confirmation, undefined);
+  assert.deepEqual(kinds(e.sent), ['paid']);
+});
+
+test('банк отказал: письмо, повтор через сутки; не оплачено за сутки до занятия → пауза и время освобождено', async () => {
+  const e = env();
+  const { sub } = await startActive(e);
+  e.payments._autopay('canceled');
+  e.clock.now = new Date(at('2026-11-15', 12).getTime() + 60000);
+  e.sent.length = 0;
+  await e.subs.tick();
+  const w1 = () => sub.weeks.find((w) => w.k === 1);
+  assert.equal(w1().status, 'reserved');
+  assert.equal(w1().attempts, 1);
+  assert.deepEqual(kinds(e.sent), ['sub:charge_failed']);
+  assert.match(e.sent[0][1].reason, /insufficient_funds/);
+  await e.subs.tick();                                                // повтор не раньше чем через сутки
+  assert.equal(w1().attempts, 1);
+  e.clock.now = new Date(e.clock.now.getTime() + 24 * H + 60000);   // 16.11, снова отказ
+  await e.subs.tick();
+  assert.equal(w1().attempts, 2);
+  e.clock.now = new Date(at('2026-11-17', 12).getTime() + 60000);   // меньше суток до занятия
+  e.sent.length = 0;
+  await e.subs.tick();
+  assert.equal(sub.status, 'paused');
+  assert.ok(kinds(e.sent).includes('sub:paused'));
+  assert.deepEqual((await e.booking.getBusy('2026-11-18', '2026-11-18'))['2026-11-18'], []);
+  assert.deepEqual((await e.booking.getBusy('2026-11-25', '2026-11-25'))['2026-11-25'], []);
+  // оплаченная первая неделя остаётся
+  assert.equal(sub.weeks.find((w) => w.k === 0).status, 'paid');
+});
+
+test('продление: когда неделя прошла, закрепляется следующая — всегда 8 недель вперёд', async () => {
+  const e = env();
+  const { sub } = await startActive(e);
+  e.clock.now = new Date(at('2026-11-11', 14).getTime());           // первое занятие прошло
+  await e.subs.tick();
+  const k8 = sub.weeks.find((w) => w.k === 8);
+  assert.equal(k8.status, 'reserved');
+  const [ev] = await e.calendar.findAllByCode(k8.code);
+  assert.equal(ev.private.date, '2027-01-06');
+});
+
+test('отмена по ссылке: будущие неоплаченные недели освобождаются, оплаченные остаются', async () => {
+  const e = env();
+  const { sub } = await startActive(e);
+  e.clock.now = new Date(at('2026-11-15', 12).getTime() + 60000);
+  await e.subs.tick();                                                // неделя 1 оплачена
+  await assert.rejects(e.subs.cancel(sub.id, '0'.repeat(24)), (x) => x.status === 404);
+  const v = e.subs.view(sub.id, sub.token);
+  assert.equal(v.status, 'active');
+  assert.ok(v.weeks.some((w) => w.status === 'paid'));
+  await e.subs.cancel(sub.id, sub.token);
+  assert.equal(sub.status, 'cancelled');
+  assert.ok((await e.booking.getBusy('2026-11-18', '2026-11-18'))['2026-11-18'].includes(12)); // оплачено — остаётся
+  assert.deepEqual((await e.booking.getBusy('2026-11-25', '2026-11-25'))['2026-11-25'], []);
+  assert.ok(kinds(e.sent).includes('sub:cancelled'));
+  e.clock.now = new Date(at('2026-11-22', 12).getTime() + 60000);
+  e.sent.length = 0;
+  await e.subs.tick();                                                // после отмены ничего не списывается
+  assert.deepEqual(e.sent, []);
+});
+
+test('карта не сохранилась (автоплатежи не включены) → первое занятие оплачено, недели освобождены', async () => {
+  const e = env();
+  e.payments._noSave(true);
+  const { sub } = await startActive(e);
+  assert.equal(sub.status, 'cancelled');
+  assert.equal(sub.endReason, 'card_not_saved');
+  assert.ok(kinds(e.sent).includes('sub:card_not_saved'));
+  assert.deepEqual((await e.booking.getBusy('2026-11-18', '2026-11-18'))['2026-11-18'], []);
+  assert.ok((await e.booking.getBusy('2026-11-11', '2026-11-11'))['2026-11-11'].includes(12));
+});
+
+test('первую неделю не оплатили → бронь снята по таймеру, закреплённые недели освобождены', async () => {
+  const e = env();
+  const r = await e.booking.book(form());
+  e.clock.now = new Date(NOW.getTime() + 2 * H);
+  await e.booking.sweep();
+  assert.equal(e.store.get(r.subscription.id).status, 'cancelled');
+  assert.deepEqual((await e.booking.getBusy('2026-11-25', '2026-11-25'))['2026-11-25'], []);
+});
+
+test('постоянная бронь выключена (SUBSCRIPTIONS не задан) → понятная ошибка', async () => {
+  const e = env({ SUBSCRIPTIONS: '' });
+  e.booking.setSubscriptions(null, e.subs.hooks);
+  await assert.rejects(e.booking.book(form()), (x) => x.status === 400 && x.code === 'subs_off');
+});
+
+test('автосписание «в обработке», потом уведомление ЮKassa об успехе → занятие оплачено, денег не возвращаем', async () => {
+  const e = env();
+  const { sub } = await startActive(e);
+  e.payments._autopay('pending');
+  e.clock.now = new Date(at('2026-11-15', 12).getTime() + 60000);
+  await e.subs.tick();
+  const w1 = sub.weeks.find((w) => w.k === 1);
+  assert.equal(w1.status, 'charging');
+  e.payments._set(w1.paymentId, 'succeeded');
+  assert.equal(await e.booking.syncPayment(w1.paymentId), 'paid');   // как уведомление от ЮKassa
+  assert.equal(w1.status, 'paid');
+  assert.equal(e.payments._refunds.length, 0);
+  await e.subs.tick();
+  assert.equal(w1.status, 'paid');
+});

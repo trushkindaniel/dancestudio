@@ -102,6 +102,16 @@ function buildConfig(env = process.env) {
       bank: env.REQUISITES_BANK || '[банк, БИК]',
     },
 
+    // постоянная бронь «каждую неделю» с автосписанием с карты (нужны автоплатежи в магазине ЮKassa)
+    subscriptions: {
+      enabled: env.SUBSCRIPTIONS === '1',
+      weeks: num(env, 'SUB_WEEKS', 8),                 // на сколько недель вперёд закреплено время
+      chargeDaysBefore: num(env, 'SUB_CHARGE_DAYS', 3), // за сколько дней до занятия списываем
+      releaseHoursBefore: num(env, 'SUB_RELEASE_HOURS', 24), // не списалось к этому сроку — освобождаем
+      retryHours: num(env, 'SUB_RETRY_HOURS', 24),
+      file: env.SUB_FILE || path.join(path.resolve(__dirname, '..'), 'data', 'subscriptions.json'),
+    },
+
     isProduction: env.NODE_ENV === 'production',
   };
 
@@ -137,6 +147,9 @@ function publicConfig(cfg) {
     slotHours: cfg.slotHours,
     minLeadMinutes: cfg.minLeadMinutes,
     payment: cfg.payment.provider, // yookassa | fake | transfer
+    subscriptions: cfg.subscriptions.enabled && cfg.payment.provider !== 'transfer'
+      ? { weeks: cfg.subscriptions.weeks, chargeDaysBefore: cfg.subscriptions.chargeDaysBefore }
+      : null,
   };
 }
 

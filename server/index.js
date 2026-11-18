@@ -10,6 +10,8 @@ const { createNotifier } = require('./notify');
 const { createBookingService } = require('./booking');
 const { createPayments } = require('./payments');
 const { createApp } = require('./app');
+const { createJsonStore } = require('./store');
+const { createSubscriptionService } = require('./subscriptions');
 const { seedDemoBusy } = require('./seed');
 
 // Сервер должен работать в одном экземпляре: защита от двойной брони и лимиты живут в памяти процесса.
@@ -39,6 +41,9 @@ async function main() {
   const notify = createNotifier(cfg);
   const payments = createPayments(cfg);
   const booking = createBookingService({ calendar, cfg, notify, payments });
+  // постоянная бронь с автосписанием: включается SUBSCRIPTIONS=1, когда в ЮKassa подключены автоплатежи
+  const subs = createSubscriptionService({ calendar, cfg, notify, payments, booking, store: createJsonStore(cfg.subscriptions.file) });
+  booking.setSubscriptions(cfg.subscriptions.enabled ? subs : null, subs.hooks);
   if (payments && payments.provider === 'fake') console.log('[dev] Оплата: имитация ЮKassa, деньги не списываются.');
 
   if (cfg.calendarDriver === 'memory') {
@@ -46,11 +51,14 @@ async function main() {
     console.log(`[dev] Календарь в памяти, добавлено демо-занятых часов: ${n}. Настоящий Google не подключён.`);
   }
 
-  const server = createApp({ cfg, booking, calendar, payments, trustProxy: process.env.TRUST_PROXY === '1' });
+  const server = createApp({ cfg, booking, calendar, payments, subs, trustProxy: process.env.TRUST_PROXY === '1' });
 
   const runSweep = () => booking.sweep()
     .then((r) => { if (r.paid || r.expired || r.errors) console.log('[sweep]', r); })
-    .catch((e) => console.error('[sweep] сбой:', e.message));
+    .catch((e) => console.error('[sweep] сбой:', e.message))
+    .then(() => subs.tick())
+    .then((r) => { if (r && r.errors) console.log('[sub]', r); })
+    .catch((e) => console.error('[sub] сбой:', e.message));
   const timer = setInterval(runSweep, cfg.sweepIntervalSec * 1000);
   timer.unref();
   runSweep();

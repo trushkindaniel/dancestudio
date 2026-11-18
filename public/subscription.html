@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Постоянная бронь — Аренда зала 55</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#f8f2eb">
+<link rel="icon" href="/icons/favicon-32.png" type="image/png" sizes="32x32">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<link rel="preload" href="/fonts/great-vibes-logo-normal-400.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/css/fonts.css">
+<link rel="stylesheet" href="/css/styles.css">
+<style>
+  .sub-card { margin-top: 8px; padding: clamp(18px, 4vw, 28px); border-radius: var(--r-lg); background: var(--surface); border: 1px solid var(--line); }
+  .sub-state { display: inline-flex; padding: 4px 12px; border-radius: 999px; font-weight: 600; font-size: 13px; background: var(--surface-2); color: var(--violet); }
+  .sub-state.off { color: var(--muted); }
+  .doc .sub-weeks { list-style: none; padding: 0; margin: 12px 0 0; display: grid; gap: 6px; }
+  .doc .sub-weeks li { max-width: none; margin: 0; }
+  .sub-weeks li { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line-soft); font-size: 15px; }
+  .sub-weeks li.past { color: var(--muted); }
+  .sub-weeks b { font-weight: 600; white-space: nowrap; }
+  .sub-weeks .paid b { color: #2f7a4b; }
+  .sub-actions { margin-top: 24px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+  .doc .sub-msg { color: var(--muted); }
+</style>
+</head>
+<body class="doc-page">
+
+<header class="doc-top">
+  <a class="logo" href="/">Аренда зала 55</a>
+  <a class="doc-back" href="/#booking">← На главную</a>
+</header>
+
+<main class="doc">
+  <h1>Постоянная бронь</h1>
+  <div id="box"><p class="sub-msg">Загружаем…</p></div>
+</main>
+
+<footer class="foot">
+  <div class="foot-brand">
+    <a class="logo logo--foot" href="/">Аренда зала 55</a>
+    <span class="muted">Вопросы: <a href="tel:+79136581900">8 913 658-19-00</a></span>
+  </div>
+  <div class="foot-side">
+    <p class="foot-req">ИП Нарольский Владимир Владимирович<br>ИНН 550709511064</p>
+  </div>
+</footer>
+
+<script>
+(function () {
+  var q = new URLSearchParams(location.search), id = q.get('id') || '', t = q.get('t') || '';
+  var box = document.getElementById('box');
+  var esc = function (s) { return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+  var money = function (n) { return new Intl.NumberFormat('ru-RU').format(n) + ' ₽'; };
+  var STATE = { pending: 'ждёт первой оплаты', active: 'действует', paused: 'на паузе', cancelled: 'отменена' };
+
+  function load() {
+    fetch('/api/sub/' + encodeURIComponent(id) + '?t=' + encodeURIComponent(t)).then(function (r) {
+      return r.json().then(function (j) { if (!r.ok) throw new Error(j.message || 'Ошибка'); return j; });
+    }).then(render).catch(function (e) {
+      box.innerHTML = '<p class="sub-msg">' + esc(e.message === 'Failed to fetch' ? 'Нет связи с сервером, обновите страницу.' : e.message) + '. Проверьте ссылку из письма или позвоните нам.</p>';
+    });
+  }
+
+  function render(s) {
+    var active = s.status === 'active' || s.status === 'pending';
+    var weeks = s.weeks.map(function (w) {
+      return '<li class="' + (w.past ? 'past ' : '') + (w.status === 'paid' ? 'paid' : '') + '"><span>' + esc(w.label) + '</span><b>' + esc(w.statusLabel) + '</b></li>';
+    }).join('');
+    box.innerHTML =
+      '<div class="sub-card">' +
+        '<p><span class="sub-state' + (active ? '' : ' off') + '">' + esc(STATE[s.status] || s.status) + '</span></p>' +
+        '<h2>' + esc(s.schedule) + '</h2>' +
+        '<p>' + money(s.weekTotal) + ' в неделю' + (s.card ? ', списывается с карты ' + esc(s.card) : '') + ' за ' + s.chargeDaysBefore + ' дн. до каждого занятия.</p>' +
+        '<ul class="sub-weeks">' + weeks + '</ul>' +
+        (active
+          ? '<div class="sub-actions"><button class="btn btn-ghost" id="cancelBtn" type="button">Отменить постоянную бронь</button><span class="sub-msg" id="cancelMsg"></span></div>' +
+            '<p class="sub-msg" style="margin-top:12px;font-size:14px;">Оплаченные занятия останутся за вами, будущие неоплаченные освободятся, автосписаний больше не будет.</p>'
+          : '<p class="sub-msg">Автосписаний нет. Чтобы снова закрепить время, оформите постоянную бронь на главной странице.</p>') +
+      '</div>';
+    var b = document.getElementById('cancelBtn');
+    if (b) b.onclick = function () {
+      if (!confirm('Отменить постоянную бронь? Будущие неоплаченные занятия освободятся.')) return;
+      b.disabled = true;
+      fetch('/api/sub/' + encodeURIComponent(id) + '/cancel?t=' + encodeURIComponent(t), { method: 'POST' })
+        .then(function (r) { if (!r.ok) throw new Error(); load(); })
+        .catch(function () { b.disabled = false; document.getElementById('cancelMsg').textContent = 'Не получилось, попробуйте ещё раз или позвоните нам.'; });
+    };
+  }
+  load();
+})();
+</script>
+</body>
+</html>

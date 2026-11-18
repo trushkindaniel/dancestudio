@@ -96,7 +96,7 @@ test('152-ФЗ: в брони записано, когда и на какую р
   const r = await booking.book(order([{ date: '2026-11-13', hours: [12] }]));
   const [ev] = await calendar.findAllByCode(r.code);
   assert.equal(ev.private.pdConsentAt, NOW.toISOString());
-  assert.equal(ev.private.pdConsentDoc, '2026-11-17');
+  assert.equal(ev.private.pdConsentDoc, '2026-11-18');
   assert.match(ev.description, /Согласие на обработку персональных данных: дано/);
 });
 

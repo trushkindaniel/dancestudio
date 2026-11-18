@@ -633,3 +633,16 @@ main, .foot { overflow-x: clip; }
 .night-toggle:hover { color: var(--violet); border-color: var(--violet); background: var(--surface-2); }
 .night-toggle svg { transition: transform .25s var(--ease); }
 .night-toggle[aria-expanded="true"] svg { transform: rotate(180deg); }
+
+/* постоянная бронь: «Разово / Каждую неделю» */
+.freq { border: 0; margin: 4px 0 16px; padding: 0; min-width: 0; }
+.freq legend { font-weight: 600; font-size: 14px; margin-bottom: 8px; padding: 0; }
+.seg { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--line); }
+.seg label { margin: 0; }
+.seg input { position: absolute; opacity: 0; pointer-events: none; }
+.seg span { display: flex; align-items: center; justify-content: center; min-height: 40px; padding: 0 8px; border-radius: 999px; font-weight: 600; font-size: 14px; color: var(--muted); cursor: pointer; text-align: center; transition: background-color .2s, color .2s; }
+.seg input:checked + span { background: var(--violet); color: var(--ink); }
+.seg input:focus-visible + span { outline: 3px solid rgba(227, 175, 186, .6); outline-offset: 1px; }
+.weekly-info { margin-top: 12px; padding: 14px 16px; border-radius: 14px; background: var(--bg); border: 1px solid var(--line); }
+.weekly-info p { margin: 0 0 10px; font-size: 14px; line-height: 1.55; color: var(--text); }
+.weekly-info .check { margin-bottom: 0; }

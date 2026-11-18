@@ -254,7 +254,34 @@
     $('clearPicks').onclick = clearPicks;
   }
 
-  function render() { renderCalendar(); renderSummary(); }
+  // ---------- постоянная бронь ----------
+  var EVERY = ['каждый понедельник', 'каждый вторник', 'каждую среду', 'каждый четверг', 'каждую пятницу', 'каждую субботу', 'каждое воскресенье'];
+  function weekly() { var w = document.querySelector('input[name="freq"][value="weekly"]'); return Boolean(CONFIG && CONFIG.subscriptions && w && w.checked); }
+  function weekSpanBad() {
+    var d = pickedRanges().map(function (r) { return r.date; }).sort();
+    return d.length > 1 && daysBetween(d[0], d[d.length - 1]) > 6;
+  }
+  function updateFreq() {
+    var s = CONFIG && CONFIG.subscriptions;
+    $('freqBox').hidden = !s;
+    var on = weekly();
+    $('weeklyInfo').hidden = !on;
+    $('emailOpt').textContent = on ? 'нужна для ссылки управления и чеков' : 'необязательно';
+    $('totalLabel').textContent = on ? 'Сейчас, за первое занятие' : 'Итого';
+    if (!on) return;
+    var ranges = pickedRanges(), all = [];
+    ranges.forEach(function (r) { all = all.concat(r.hours); });
+    var sum = money(totals(all).total);
+    var when = ranges.map(function (r) {
+      var wd = (dateFromKey(r.date).getDay() + 6) % 7;
+      return EVERY[wd] + ' ' + pad(r.hours[0]) + ':00–' + pad(r.hours[r.hours.length - 1] + 1) + ':00';
+    }).join(', ');
+    $('weeklyText').textContent = 'Время закрепится за вами: ' + (when || 'выбранные часы') + ', на ' + s.weeks + ' недель вперёд, дальше продлевается само. ' +
+      'Сейчас оплачиваете первое занятие, дальше ' + sum + ' будет списываться с карты за ' + s.chargeDaysBefore + ' дн. до каждого занятия. Отменить можно в любой момент по ссылке из письма.';
+    $('autopayText').textContent = 'Согласен на автоматическое списание ' + sum + ' в неделю с привязанной карты за ' + s.chargeDaysBefore + ' дн. до каждого занятия, пока не отменю постоянную бронь';
+  }
+
+  function render() { renderCalendar(); renderSummary(); updateFreq(); }
 
   // ---------- события календаря ----------
   function onSlotClick(e) {
@@ -268,7 +295,7 @@
     var i = $(inputId); $(errId).textContent = msg || '';
     if (i) { if (msg) i.setAttribute('aria-invalid', 'true'); else i.removeAttribute('aria-invalid'); }
   }
-  var FIELD_MAP = { name: ['fName', 'eName'], phone: ['fPhone', 'ePhone'], email: ['fEmail', 'eEmail'], consent: ['fConsent', 'eConsent'], pdConsent: ['fConsent', 'eConsent'] };
+  var FIELD_MAP = { name: ['fName', 'eName'], phone: ['fPhone', 'ePhone'], email: ['fEmail', 'eEmail'], consent: ['fConsent', 'eConsent'], pdConsent: ['fConsent', 'eConsent'], autopayConsent: ['fAutopay', 'eAutopay'] };
 
   function validate() {
     var ok = true, first = null;
@@ -278,7 +305,10 @@
     $('eForm').textContent = '';
     if (name.length < 2) bad('fName', 'eName', 'Введите имя');
     if (phone.length < 10) bad('fPhone', 'ePhone', 'Введите телефон полностью');
-    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) bad('fEmail', 'eEmail', 'Проверьте почту, например name@mail.ru, или оставьте поле пустым');
+    if (weekly() && !email) bad('fEmail', 'eEmail', 'Для постоянной брони нужна почта: пришлём ссылку для управления и чеки');
+    else if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) bad('fEmail', 'eEmail', 'Проверьте почту, например name@mail.ru, или оставьте поле пустым');
+    if (weekly() && !$('fAutopay').checked) bad('fAutopay', 'eAutopay', 'Отметьте согласие на автоматическое списание или выберите «Разово»');
+    if (weekly() && weekSpanBad()) { $('eForm').textContent = 'Для постоянной брони выберите время в пределах одной недели'; ok = false; }
     if (!$('fConsent').checked) bad('fConsent', 'eConsent', 'Отметьте согласие с правилами и на обработку персональных данных, без него бронь не оформить');
     if (first) first.focus();
     return ok;
@@ -394,7 +424,7 @@
   };
 
   function openWidget(r, email) {
-    current = { code: r.code, token: r.token, deadline: new Date(r.deadline).getTime(), online: true };
+    current = { code: r.code, token: r.token, deadline: new Date(r.deadline).getTime(), online: true, sub: r.subscription || null };
     stopTimer(); destroyWidget(); payMode('widget'); fillHead(r);
     chip('Ожидает оплаты');
     $('payStatus').textContent = 'Оплатите картой или через СБП. Время на оплату: ' + holdLabel(CONFIG.holdMinutes) + ', потом слот освободится.';
@@ -452,11 +482,14 @@
   function pollStatus(code, token, tries) {
     api('/api/book/' + code + '?token=' + token).then(function (r) {
       if (r.status === 'paid') {
+        var sub = current && current.sub;
         current = null;
         chip('Оплачено');
-        $('payTitle').textContent = 'Бронь ' + code + ' подтверждена';
-        $('payStatus').textContent = 'Оплата прошла. Ждём вас в зале.';
-        $('payMail').textContent = 'Подтверждение ушло на почту, которую вы указали.';
+        $('payTitle').textContent = sub ? 'Постоянная бронь оформлена' : 'Бронь ' + code + ' подтверждена';
+        $('payStatus').textContent = sub
+          ? 'Первое занятие оплачено. Дальше оплата спишется сама за ' + sub.chargeDaysBefore + ' дн. до каждого занятия: ' + sub.schedule + '.'
+          : 'Оплата прошла. Ждём вас в зале.';
+        $('payMail').textContent = sub ? 'Письмо со ссылкой для управления и отмены ушло на вашу почту.' : 'Подтверждение ушло на почту, которую вы указали.';
         loadWeek();
       } else if (r.status === 'pending') {
         if (tries < 20) return setTimeout(function () { pollStatus(code, token, tries + 1); }, 3000);
@@ -486,10 +519,12 @@
         name: $('fName').value.trim(), phone: $('fPhone').value.trim(), email: email,
         purpose: $('fPurpose').value, people: $('fPeople').value ? Number($('fPeople').value) : null,
         note: $('fNote').value.trim(), consent: $('fConsent').checked, pdConsent: $('fConsent').checked, website: $('fWebsite').value,
+        recurring: weekly(), autopayConsent: weekly() && $('fAutopay').checked,
       },
     }).then(function (r) {
       state.picks = {};
       $('bookForm').reset();
+      updateFreq();
       $('selNote').textContent = '';
       if (r.payment) openWidget(r, email);
       else openPayment(r, email);
@@ -753,6 +788,10 @@
         var t = $(id).querySelector('[data-night]'); if (t) t.focus({ preventScroll: true });
       });
     });
+    document.querySelectorAll('input[name="freq"]').forEach(function (r) {
+      r.addEventListener('change', function () { updateFreq(); $('eForm').textContent = ''; });
+    });
+    $('fAutopay').addEventListener('change', function () { $('fAutopay').removeAttribute('aria-invalid'); $('eAutopay').textContent = ''; });
     $('dayTabs').addEventListener('click', function (e) {
       var t = e.target.closest('.daytab'); if (!t || t.disabled) return;
       state.day = t.dataset.day; render();

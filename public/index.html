@@ -141,9 +141,26 @@
             <p class="chosen-date" id="chosenDate"></p>
             <p class="chosen-time" id="chosenTime"></p>
             <ul class="lines" id="chosenLines"></ul>
-            <p class="total"><span>Итого</span><b id="chosenTotal">0 ₽</b></p>
+            <p class="total"><span id="totalLabel">Итого</span><b id="chosenTotal">0 ₽</b></p>
             <p class="hint sel-note" id="selNote" aria-live="polite"></p>
           </div>
+
+          <!-- постоянная бронь: показывается, когда в ЮKassa включены автоплатежи (SUBSCRIPTIONS=1) -->
+          <fieldset class="freq" id="freqBox" hidden>
+            <legend>Как часто</legend>
+            <div class="seg">
+              <label><input type="radio" name="freq" value="once" checked><span>Разово</span></label>
+              <label><input type="radio" name="freq" value="weekly"><span>Каждую неделю</span></label>
+            </div>
+            <div class="weekly-info" id="weeklyInfo" hidden>
+              <p id="weeklyText"></p>
+              <label class="check">
+                <input id="fAutopay" type="checkbox">
+                <span id="autopayText">Согласен на автоматическое списание с привязанной карты</span>
+              </label>
+              <p class="err" id="eAutopay" aria-live="polite"></p>
+            </div>
+          </fieldset>
 
           <div class="field">
             <label for="fName">Имя</label>
@@ -156,7 +173,7 @@
             <p class="err" id="ePhone" aria-live="polite"></p>
           </div>
           <div class="field">
-            <label for="fEmail">Почта <span class="opt">необязательно</span></label>
+            <label for="fEmail">Почта <span class="opt" id="emailOpt">необязательно</span></label>
             <input id="fEmail" name="email" type="email" autocomplete="email" placeholder="пришлём подтверждение брони и чек">
             <p class="err" id="eEmail" aria-live="polite"></p>
           </div>

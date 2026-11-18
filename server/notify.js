@@ -4,7 +4,7 @@
    администратору — «оплата прошла» и новая бронь.
    Telegram: короткие сообщения администратору.
    Если почта или Telegram не настроены, сообщения печатаются в консоль. Сбой уведомления не ломает бронь. */
-const { templates } = require('./mail');
+const { templates, subTemplates, adminSub } = require('./mail');
 
 /**
  * @param deps.transport  объект с sendMail(opts) — для тестов и предпросмотра; иначе создаётся SMTP-транспорт
@@ -94,6 +94,14 @@ function createNotifier(cfg, deps = {}) {
       await Promise.all([
         send(b.email, templates.clientExpired(cfg, b)),
         telegramAdmin(`Бронь ${b.code} снята: ${b.reason === 'payment_canceled' ? 'оплата не прошла' : 'нет оплаты в срок'} (${when(b)}).`),
+      ]);
+    },
+    /** Постоянная бронь: kind = started | card_not_saved | charge_failed | paused | skipped | cancelled */
+    async subscription(kind, s) {
+      await Promise.all([
+        subTemplates[kind] && s.email ? send(s.email, subTemplates[kind](cfg, s)) : null,
+        send(cfg.adminEmail, adminSub(cfg, kind, s)),
+        telegramAdmin(adminSub(cfg, kind, s).subject),
       ]);
     },
     async cancelled(b) {
