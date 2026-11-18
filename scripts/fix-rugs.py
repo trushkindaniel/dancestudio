@@ -1,96 +1,103 @@
 """
-Фото раздевалки: коврики «как новые» и ровно по линии коридора.
-Берём текстуру самих ковриков, чистим её (без тёмных пятен, ровный цвет), укладываем
-два прямых коврика по перспективе коридора, а открывшийся пол дорисовываем по соседним пикселям.
+Фото раздевалки: коврики ровно по линии коридора и посвежее.
+Берём настоящие пиксели каждого коврика и перспективно «выпрямляем» их в ровный прямоугольник
+по линиям коридора. Новые коврики чуть шире и полностью накрывают старые, поэтому пол и скамейки
+не дорисовываются (раньше из-за этого были мыльные пятна). Пол дорисовывается только в тонких
+щелях в пару пикселей и под розовой тапочкой у скамейки, точно по её контуру.
 Запуск: python scripts/fix-rugs.py  → public/img/lockers-v2.webp, lockers-v2-640.webp
 """
 import os
 import cv2
 import numpy as np
+from PIL import Image
 
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
 src = cv2.imread(os.path.join(ROOT, 'docs', 'photos', 'lockers.jpg'))
-img = src.copy()
-H, W = img.shape[:2]
+H, W = src.shape[:2]
 
-# коврики на исходном фото (по сетке координат): дальний и ближний
+# коврики на исходном фото (по сетке координат)
 old_back = np.float32([[517, 653], [641, 656], [645, 757], [476, 754]])
 old_front = np.float32([[486, 753], [651, 756], [654, 964], [398, 964]])
 
-# точка схода коридора (по правому краю ковриков) и прямые линии новых ковриков
+# точка схода коридора; края новых ковриков идут по линиям к ней
 VP = np.array([631.0, 430.0])
-def on_line(x_bottom, y):
+def x_at(x_bottom, y):
     return x_bottom + (VP[0] - x_bottom) * (964 - y) / (964 - VP[1])
-LX, RX = 396.0, 654.0
-def quad(y0, y1):
-    return np.float32([[on_line(LX, y0), y0], [on_line(RX, y0), y0], [on_line(RX, y1), y1], [on_line(LX, y1), y1]])
-new_back = quad(656, 750)
-new_front = quad(762, 966)
-
-
-def rectify(q, w, h):
-    M = cv2.getPerspectiveTransform(q, np.float32([[0, 0], [w, 0], [w, h], [0, h]]))
-    return cv2.warpPerspective(src, M, (w, h), flags=cv2.INTER_CUBIC)
-
-
-def clean(tex):
-    """Чистая текстура: убрать тёмные пятна и серость, выровнять цвет, сохранить ворс."""
-    lab = cv2.cvtColor(tex, cv2.COLOR_BGR2LAB).astype(np.float32)
-    L, A, B = cv2.split(lab)
-    base = cv2.GaussianBlur(L, (0, 0), 18)                  # общее освещение
-    detail = L - base                                        # ворс
-    detail = np.clip(detail, -22, 24)                        # самые тёмные пятна срезаем, ворс оставляем
-    L2 = np.full_like(L, float(np.median(L)) + 7) + detail * 1.05  # ровный, чуть светлее тон + ворс
-    A2 = A * 0.5 + float(np.median(A)) * 0.5 + 2              # розовый ровнее, без серых пятен
-    B2 = B * 0.5 + float(np.median(B)) * 0.5
-    out = cv2.merge([np.clip(L2, 0, 255), np.clip(A2, 0, 255), np.clip(B2, 0, 255)]).astype(np.uint8)
-    return cv2.cvtColor(out, cv2.COLOR_LAB2BGR)
+def quad(lx, rx, y0, y1):
+    return np.float32([[x_at(lx, y0), y0], [x_at(rx, y0), y0], [x_at(rx, y1), y1], [x_at(lx, y1), y1]])
+new_back = quad(366, 661, 651, 756)    # накрывает старый дальний коврик целиком
+new_front = quad(398, 661, 755, 968)   # и ближний; коврики встык, как на исходном фото
 
 
 def inset(q, d):
-    """Четырёхугольник, сжатый к центру на d пикселей: в текстуру не попадает кромка и пол."""
+    """Четырёхугольник, сжатый к центру на d пикселей: в текстуру не попадают кромка и пол."""
     c0 = q.mean(axis=0)
     return np.float32([p + (c0 - p) / np.linalg.norm(c0 - p) * d for p in q])
 
 
-tex_front = clean(rectify(inset(old_front, 14), 320, 420))
-tex_back = clean(rectify(inset(old_back, 12), 320, 200))
+def freshen(img, mask):
+    """Мягко освежить ворс: высветлить тёмные пятна и пыль, не трогая сам рисунок ворса."""
+    lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB).astype(np.float32)
+    L, A, B = cv2.split(lab)
+    local = cv2.GaussianBlur(L, (0, 0), 10)
+    dark = np.minimum(L - local, 0)                    # только то, что темнее окружения
+    L = L - dark * 0.45 + 6                            # пятна светлее, весь коврик чуть светлее
+    A = A * 0.8 + float(np.median(A[mask > 0])) * 0.2 + 1.5   # розовый ровнее, без серых пятен
+    B = B * 0.8 + float(np.median(B[mask > 0])) * 0.2
+    out = cv2.merge([np.clip(L, 0, 255), np.clip(A, 0, 255), np.clip(B, 0, 255)]).astype(np.uint8)
+    return cv2.cvtColor(out, cv2.COLOR_LAB2BGR)
 
-# 1) убираем старые коврики и розовую тапочку у скамейки: дорисовываем пол
-mask = np.zeros((H, W), np.uint8)
+
+out = src.copy()
+
+# 1) розовая тапочка у скамейки: маска строго по цвету, дорисовка маленьким радиусом
+box = (628, 645, 672, 690)
+hsv = cv2.cvtColor(src, cv2.COLOR_BGR2HSV)
+pink = cv2.inRange(hsv, (140, 60, 120), (179, 255, 255)) | cv2.inRange(hsv, (0, 60, 120), (8, 255, 255))
+slipper = np.zeros((H, W), np.uint8)
+slipper[box[1]:box[3], box[0]:box[2]] = pink[box[1]:box[3], box[0]:box[2]]
+slipper = cv2.dilate(slipper, np.ones((3, 3), np.uint8), iterations=2)
+
+# 2) щели, где старый коврик выглядывает из-под нового (пара пикселей)
+old_mask = np.zeros((H, W), np.uint8)
+new_mask = np.zeros((H, W), np.uint8)
 for q in (old_back, old_front):
-    cv2.fillConvexPoly(mask, q.astype(np.int32), 255)
-cv2.rectangle(mask, (640, 655), (664, 680), 255, -1)        # тапочка
-mask = cv2.dilate(mask, np.ones((7, 7), np.uint8))
-floor = cv2.inpaint(img, mask, 9, cv2.INPAINT_TELEA)
+    cv2.fillConvexPoly(old_mask, q.astype(np.int32), 255)
+for q in (new_back, new_front):
+    cv2.fillConvexPoly(new_mask, q.astype(np.int32), 255)
+slivers = cv2.bitwise_and(old_mask, cv2.bitwise_not(cv2.erode(new_mask, np.ones((3, 3), np.uint8))))
+out = cv2.inpaint(out, cv2.bitwise_or(slivers, slipper), 3, cv2.INPAINT_TELEA)
 
-# 2) мягкая тень под ковриками
+# 3) лёгкая тень под ковриками
 shadow = np.zeros((H, W), np.float32)
 for q in (new_back, new_front):
     cv2.fillConvexPoly(shadow, (q + np.float32([2, 3])).astype(np.int32), 1.0)
-shadow = cv2.GaussianBlur(shadow, (0, 0), 3) * 0.10
-floor = (floor.astype(np.float32) * (1 - shadow[..., None])).astype(np.uint8)
+shadow = cv2.GaussianBlur(shadow, (0, 0), 3) * 0.08
+out = (out.astype(np.float32) * (1 - shadow[..., None])).astype(np.uint8)
 
-# 3) кладём чистые коврики по новым прямым линиям
-out = floor.copy()
-for tex, q in ((tex_back, new_back), (tex_front, new_front)):
-    h, w = tex.shape[:2]
-    M = cv2.getPerspectiveTransform(np.float32([[0, 0], [w, 0], [w, h], [0, h]]), q)
-    warped = cv2.warpPerspective(tex, M, (W, H), flags=cv2.INTER_CUBIC)
+# 4) настоящие коврики, выпрямленные по линиям коридора
+rng = np.random.default_rng(7)
+for old, new in ((old_back, new_back), (old_front, new_front)):
+    M = cv2.getPerspectiveTransform(inset(old, 5), new)
+    warped = cv2.warpPerspective(src, M, (W, H), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REFLECT)
     m = np.zeros((H, W), np.float32)
-    cv2.fillConvexPoly(m, q.astype(np.int32), 1.0)
-    # ворсистый край: мягкая граница с лёгким шумом, а не ровная линия
-    rng = np.random.default_rng(7)
-    m = cv2.GaussianBlur(m, (0, 0), 1.4)
+    cv2.fillConvexPoly(m, new.astype(np.int32), 1.0)
+    warped = freshen(warped, (m > 0).astype(np.uint8))
+    m = cv2.GaussianBlur(m, (0, 0), 1.1)
     edge = (m > 0.02) & (m < 0.98)
-    m[edge] = np.clip(m[edge] * (0.75 + 0.5 * rng.random(int(edge.sum()))), 0, 1)
+    m[edge] = np.clip(m[edge] * (0.8 + 0.4 * rng.random(int(edge.sum()))), 0, 1)   # ворсистый край
     m = m[..., None]
     out = (warped * m + out * (1 - m)).astype(np.uint8)
 
+# 5) стык ковриков: ближний чуть наезжает на дальний — тонкая мягкая тень по краю
+seam = np.zeros((H, W), np.float32)
+y = 755
+cv2.line(seam, (int(x_at(398, y)) + 2, y), (int(x_at(661, y)) - 2, y), 1.0, 3)
+seam = cv2.GaussianBlur(seam, (0, 0), 1.6) * 0.28
+out = (out.astype(np.float32) * (1 - seam[..., None])).astype(np.uint8)
+
 cv2.imwrite(os.path.join(ROOT, 'docs', 'photos', 'lockers-v2.jpg'), out, [cv2.IMWRITE_JPEG_QUALITY, 93])
-rgb = cv2.cvtColor(out, cv2.COLOR_BGR2RGB)
-from PIL import Image
-im = Image.fromarray(rgb)
-im.save(os.path.join(ROOT, 'public', 'img', 'lockers-v2.webp'), 'WEBP', quality=80, method=6)
-im.resize((640, round(H * 640 / W)), Image.LANCZOS).save(os.path.join(ROOT, 'public', 'img', 'lockers-v2-640.webp'), 'WEBP', quality=78, method=6)
-print('ok', im.size)
+im = Image.fromarray(cv2.cvtColor(out, cv2.COLOR_BGR2RGB))
+im.save(os.path.join(ROOT, 'public', 'img', 'lockers-v3.webp'), 'WEBP', quality=82, method=6)
+im.resize((640, round(H * 640 / W)), Image.LANCZOS).save(os.path.join(ROOT, 'public', 'img', 'lockers-v3-640.webp'), 'WEBP', quality=80, method=6)
+print('ok', im.size, 'щели:', int((slivers > 0).sum()), 'тапочка:', int((slipper > 0).sum()))
