@@ -145,7 +145,7 @@ function createBookingService({ calendar, cfg, notify, payments = null, now = ()
             description: [
               `Бронь ${code}${partTag}: ${lb.dateLabel}, ${lb.timeLabel}`,
               parts.length > 1 ? `Вся бронь: ${allLabels.join('; ')} — всего ${total} ₽` : null,
-              `Клиент: ${v.name}`, `Телефон: ${v.phone}`, `Почта: ${v.email}`,
+              `Клиент: ${v.name}`, `Телефон: ${v.phone}`, `Почта: ${v.email || 'не указана'}`,
               v.purposeLabel ? `Формат: ${v.purposeLabel}` : null,
               v.people ? `Человек: ${v.people}` : null,
               v.note ? `Комментарий: ${v.note}` : null,
@@ -174,7 +174,7 @@ function createBookingService({ calendar, cfg, notify, payments = null, now = ()
       if (online) {
         try {
           const p = await payments.createPayment({
-            code, total, date: parts[0].date, hours: `${parts[0].first}-${parts[0].last}`, hoursCount, email: v.email,
+            code, total, date: parts[0].date, hours: `${parts[0].first}-${parts[0].last}`, hoursCount, email: v.email, phone: v.phone,
             dateLabel: parts.length > 1 ? order.dateLabel : order.ranges[0].dateLabel,
             timeLabel: parts.length > 1 ? `${hoursCount} ч` : order.ranges[0].timeLabel,
             idempotenceKey: `pay-${code}-${deadline.getTime()}`,

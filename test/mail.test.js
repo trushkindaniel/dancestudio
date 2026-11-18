@@ -13,7 +13,7 @@ const booking = {
   dateLabel: 'пятница, 13 ноября', timeLabel: '18:00–20:00',
 };
 
-test('ключ забирают за 15 минут до начала', () => {
+test('pickupTime: время за N минут до начала', () => {
   assert.equal(pickupTime(18, 15), '17:45');
   assert.equal(pickupTime(9, 15), '08:45');
 });
@@ -21,7 +21,7 @@ test('ключ забирают за 15 минут до начала', () => {
 test('письмо после оплаты: время, адрес, где взять и куда вернуть ключ, закрыть всё', () => {
   const m = templates.clientPaid(cfg, booking);
   assert.match(m.subject, /AB23 подтверждена/);
-  for (const part of ['пятница, 13 ноября, 18:00–20:00', 'Фрунзе, 1 корпус 4', '11 этаж, помещение 1131', '17:45', 'офис ITB, 3 этаж, офис 307', 'стойку ресепшена', 'окна, свет, дверь зала']) {
+  for (const part of ['пятница, 13 ноября, 18:00–20:00', 'Фрунзе, 1 корпус 4', '11 этаж, помещение 1131', 'За несколько минут до начала', 'аренда начинается в 18:00', 'офис ITB, 3 этаж, офис 307', 'постоянный ключ', 'возьмите ту, что есть в зале', 'следующий тренер уже пришёл', 'стойку ресепшена', 'окна, свет, дверь зала']) {
     assert.ok(m.text.includes(part), `в тексте нет «${part}»`);
     assert.ok(m.html.includes(part), `в HTML нет «${part}»`);
   }
@@ -45,7 +45,7 @@ test('событие для календаря: время в UTC, место, �
 test('администратору: оплата прошла, клиент, формат, когда выдать ключ', () => {
   const m = templates.adminPaid(cfg, booking);
   assert.match(m.subject, /^Оплата прошла: бронь AB23/);
-  for (const part of ['+7 900 123-45-67', 'anna@example.com', 'репетиция', 'Человек: 8', '17:45']) assert.ok(m.text.includes(part), part);
+  for (const part of ['+7 900 123-45-67', 'anna@example.com', 'репетиция', 'Человек: 8', 'Ключ выдать к началу аренды', 'в 18:00']) assert.ok(m.text.includes(part), part);
 });
 
 test('после оплаты уходят два письма: клиенту с инструкцией и администратору', async () => {
@@ -75,11 +75,11 @@ test('бронь из нескольких промежутков: все дат
     { date: '2026-11-14', startHour: 19, endHour: 21, dateLabel: 'суббота, 14 ноября', timeLabel: '19:00–21:00', start: new Date('2026-11-14T13:00:00Z'), end: new Date('2026-11-14T15:00:00Z') },
   ] };
   const m = templates.clientPaid(cfg, multi);
-  for (const part of ['пятница, 13 ноября, 09:00–11:00', 'суббота, 14 ноября, 19:00–21:00', 'в 08:45', 'в 18:45']) assert.ok(m.text.includes(part), part);
+  for (const part of ['пятница, 13 ноября, 09:00–11:00', 'суббота, 14 ноября, 19:00–21:00', 'начало в 09:00', 'начало в 19:00']) assert.ok(m.text.includes(part), part);
   assert.equal((m.attachments[0].content.match(/BEGIN:VEVENT/g) || []).length, 2);
   const a = templates.adminPaid(cfg, multi);
   assert.match(a.subject, /2 промежутка/);
-  assert.ok(a.text.includes('суббота, 14 ноября в 18:45'));
+  assert.ok(a.text.includes('суббота, 14 ноября в 19:00'));
 });
 
 test('круглосуточно: на аренду с 00:00 ключ забирают накануне вечером', () => {

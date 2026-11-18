@@ -20,7 +20,8 @@ function pickupTime(startHour, beforeMin) {
 /** Промежутки брони; у старой одиночной брони — один */
 const rangesOf = (b) => (Array.isArray(b.ranges) && b.ranges.length ? b.ranges : [b]);
 const whenLines = (b) => rangesOf(b).map((r) => `${r.dateLabel}, ${r.timeLabel}`);
-const keyTimes = (cfg, b) => rangesOf(b).map((r) => ({ at: pickupTime(r.startHour, cfg.venue.arriveBeforeMin), date: r.dateLabel }));
+// ключ забирают за несколько минут до начала: в письмах указываем время начала аренды
+const keyTimes = (cfg, b) => rangesOf(b).map((r) => ({ at: `${pad(r.startHour)}:00`, date: r.dateLabel }));
 
 /** Общая обёртка: светлое письмо, читается в любом почтовом клиенте, без внешних картинок */
 function layout(cfg, { preheader, title, body }) {
@@ -56,21 +57,21 @@ function instructions(cfg, b) {
   const keys = keyTimes(cfg, b);
   const multi = keys.length > 1;
   const at = keys[0].at;
-  const whenHtml = multi ? `<b>За ${v.arriveBeforeMin} минут до начала каждой аренды</b> (${keys.map((k) => `${esc(k.date)} — в ${k.at}`).join('; ')})` : `<b>В ${at}</b> (за ${v.arriveBeforeMin} минут до начала)`;
-  const whenText = multi ? `За ${v.arriveBeforeMin} минут до начала каждой аренды (${keys.map((k) => `${k.date} — в ${k.at}`).join('; ')})` : `В ${at} (за ${v.arriveBeforeMin} минут до начала)`;
+  const whenHtml = multi ? `<b>За несколько минут до начала каждой аренды</b> (${keys.map((k) => `${esc(k.date)} — начало в ${k.at}`).join('; ')})` : `<b>За несколько минут до начала</b> (аренда начинается в ${at})`;
+  const whenText = multi ? `За несколько минут до начала каждой аренды (${keys.map((k) => `${k.date} — начало в ${k.at}`).join('; ')})` : `За несколько минут до начала (аренда начинается в ${at})`;
   const steps = [
     `${whenHtml} зайдите в <b>${esc(v.keyPickup)}</b> и заберите ключ от зала.`,
     `Поднимитесь в зал: <b>${esc(v.address.replace(/^.*?,\s*(?=\d+ этаж)/, '') || v.address)}</b>.`,
-    'Приходите в сменной обуви. Время аренды считается с начала часа.',
-    '<b>Перед уходом всё закройте:</b> окна, свет, дверь зала.',
-    `После аренды <b>верните ключ на ${esc(v.keyReturn)}</b>.`,
+    'Приходите в сменной обуви или возьмите ту, что есть в зале. Время аренды считается с начала часа.',
+    '<b>Перед уходом всё закройте:</b> окна, свет, дверь зала. Если следующий тренер уже пришёл, можно оставить ему открытым.',
+    `После аренды <b>верните ключ на ${esc(v.keyReturn)}</b>. Если арендуете постоянно, выдадим вам постоянный ключ.`,
   ];
   const text = [
     `1. ${whenText} зайдите в ${v.keyPickup} и заберите ключ от зала.`,
     `2. Поднимитесь в зал: ${v.address}.`,
-    '3. Приходите в сменной обуви. Время аренды считается с начала часа.',
-    '4. Перед уходом всё закройте: окна, свет, дверь зала.',
-    `5. После аренды верните ключ на ${v.keyReturn}.`,
+    '3. Приходите в сменной обуви или возьмите ту, что есть в зале. Время аренды считается с начала часа.',
+    '4. Перед уходом всё закройте: окна, свет, дверь зала. Если следующий тренер уже пришёл, можно оставить ему открытым.',
+    `5. После аренды верните ключ на ${v.keyReturn}. Если арендуете постоянно, выдадим вам постоянный ключ.`,
   ].join('\n');
   const html = `<h2 style="margin:24px 0 10px;font-family:Georgia,'Times New Roman',serif;font-weight:normal;font-size:20px;">Как попасть в зал</h2>
 <ol style="margin:0 0 16px;padding-left:20px;font-size:15px;line-height:1.6;">${steps.map((s) => `<li style="margin-bottom:8px;">${s}</li>`).join('')}</ol>`;
@@ -90,7 +91,7 @@ function icsEvent(cfg, b) {
     `DTEND:${f(r.end)}`,
     `SUMMARY:${clean(`Аренда зала ${cfg.studioName}, бронь ${b.code}`)}`,
     `LOCATION:${clean(cfg.venue.address)}`,
-    `DESCRIPTION:${clean(`Ключ: ${cfg.venue.keyPickup}, в ${pickupTime(r.startHour, cfg.venue.arriveBeforeMin)}. После аренды верните ключ на ${cfg.venue.keyReturn}. Телефон: ${cfg.venue.phone}`)}`,
+    `DESCRIPTION:${clean(`Ключ: ${cfg.venue.keyPickup}, за несколько минут до начала. После аренды верните ключ на ${cfg.venue.keyReturn}. Телефон: ${cfg.venue.phone}`)}`,
     'BEGIN:VALARM', 'TRIGGER:-PT60M', 'ACTION:DISPLAY', `DESCRIPTION:${clean('Через час аренда зала')}`, 'END:VALARM',
     'END:VEVENT',
   ].join('\r\n'));
@@ -122,11 +123,11 @@ const templates = {
     const subject = `Бронь ${b.code} подтверждена: ${rangesOf(b).length > 1 ? b.dateLabel : when(b)}`;
     const text = `Здравствуйте, ${b.name}!\n\nОплата получена, зал ваш.\n\nКогда:\n${whenLines(b).map((l) => '  ' + l).join('\n')}\nАдрес: ${cfg.venue.address}\nОплачено: ${money(b.total)}\nКод брони: ${b.code}\n\nКак попасть в зал:\n${ins.text}\n\nКарта: ${cfg.venue.mapUrl}\nВопросы: ${cfg.venue.phone}\n\nВ письме есть файл для календаря, чтобы не забыть.\n\n${cfg.studioName}`;
     const html = layout(cfg, {
-      preheader: `Ключ: ${cfg.venue.keyPickup}, за ${cfg.venue.arriveBeforeMin} минут до начала`, title: 'Оплата получена, зал ваш',
+      preheader: `Ключ: ${cfg.venue.keyPickup}, за несколько минут до начала`, title: 'Оплата получена, зал ваш',
       body: p(`Здравствуйте, ${esc(b.name)}!`) + table([
         row('Когда', whenHtml(b)),
         row('Адрес', esc(cfg.venue.address)),
-        row('Ключ', `${esc(cfg.venue.keyPickup)}, ${ins.keys.length > 1 ? 'за ' + cfg.venue.arriveBeforeMin + ' минут до начала' : 'в ' + ins.pickupAt}`),
+        row('Ключ', `${esc(cfg.venue.keyPickup)}, за несколько минут до начала`),
         row('Оплачено', esc(money(b.total))),
         row('Код брони', esc(b.code)),
       ]) + ins.html + button(cfg.venue.mapUrl, 'Открыть на карте') +
@@ -139,18 +140,18 @@ const templates = {
   adminPaid(cfg, b) {
     const extra = [b.purpose && `Формат: ${b.purpose}`, b.people && `Человек: ${b.people}`].filter(Boolean);
     const subject = `Оплата прошла: бронь ${b.code}, ${rangesOf(b).length > 1 ? b.dateLabel : when(b)}, ${money(b.total)}`;
-    const text = `Оплачена бронь ${b.code}.\n\nКогда:\n${whenLines(b).map((l) => '  ' + l).join('\n')}\nКлиент: ${b.name}\nТелефон: ${b.phone}\nПочта: ${b.email}\nСумма: ${money(b.total)}\n${extra.join('\n')}\n\nКлюч выдать: ${keyTimes(cfg, b).map((k) => `${k.date} в ${k.at}`).join('; ')} (${cfg.venue.keyPickup}).\nСобытие в календаре стало зелёным.`;
+    const text = `Оплачена бронь ${b.code}.\n\nКогда:\n${whenLines(b).map((l) => '  ' + l).join('\n')}\nКлиент: ${b.name}\nТелефон: ${b.phone}\nПочта: ${b.email || 'не указана'}\nСумма: ${money(b.total)}\n${extra.join('\n')}\n\nКлюч выдать к началу аренды: ${keyTimes(cfg, b).map((k) => `${k.date} в ${k.at}`).join('; ')} (${cfg.venue.keyPickup}).\nСобытие в календаре стало зелёным.`;
     const html = layout(cfg, {
       preheader: `${b.name}, ${when(b)}`, title: `Оплата прошла: бронь ${b.code}`,
       body: table([
         row('Когда', whenHtml(b)),
         row('Клиент', esc(b.name)),
         row('Телефон', `<a href="tel:${esc(String(b.phone).replace(/[^\d+]/g, ''))}" style="color:#b0707f;">${esc(b.phone)}</a>`),
-        row('Почта', `<a href="mailto:${esc(b.email)}" style="color:#b0707f;">${esc(b.email)}</a>`),
+        row('Почта', b.email ? `<a href="mailto:${esc(b.email)}" style="color:#b0707f;">${esc(b.email)}</a>` : 'не указана'),
         row('Сумма', esc(money(b.total))),
         ...(b.purpose ? [row('Формат', esc(b.purpose))] : []),
         ...(b.people ? [row('Человек', esc(b.people))] : []),
-      ]) + p(`Ключ выдать: <b>${keyTimes(cfg, b).map((k) => `${esc(k.date)} в ${k.at}`).join('; ')}</b> (${esc(cfg.venue.keyPickup)}). События в календаре стали зелёными.`),
+      ]) + p(`Ключ выдать к началу аренды: <b>${keyTimes(cfg, b).map((k) => `${esc(k.date)} в ${k.at}`).join('; ')}</b> (${esc(cfg.venue.keyPickup)}). События в календаре стали зелёными.`),
     });
     return { subject, text, html };
   },

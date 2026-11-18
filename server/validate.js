@@ -34,7 +34,8 @@ function validateBooking(input, cfg, now) {
   if (name.length < 2 || name.length > 80) f.name = 'Введите имя (2–80 символов)';
   const digits = phone.replace(/\D/g, '');
   if (digits.length < 10 || digits.length > 15 || phone.length > 30) f.phone = 'Введите телефон полностью';
-  if (!EMAIL_RE.test(email) || email.length > 120) f.email = 'Проверьте почту, например name@mail.ru';
+  // почта необязательна: без неё не придут письма, чек ЮKassa уйдёт на телефон
+  if (email && (!EMAIL_RE.test(email) || email.length > 120)) f.email = 'Проверьте почту, например name@mail.ru, или оставьте поле пустым';
   if (note.length > 500) f.note = 'Комментарий не длиннее 500 символов';
   if (people !== null && !(Number.isInteger(people) && people >= 1 && people <= 60)) f.people = 'Число людей от 1 до 60';
   if (src.consent !== true) f.consent = 'Подтвердите, что принимаете правила пользования залом';

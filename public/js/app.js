@@ -26,7 +26,9 @@
   var CONFIG = null;
   var clock = null;                       // «сейчас» в часовом поясе студии, по данным сервера
   // picks: выбранные часы по дням { '2026-11-16': [9, 10], … } — можно в разные дни и несколько промежутков
-  var state = { weekOffset: 0, day: null, picks: {}, busy: {}, loading: false, failed: false };
+  var state = { weekOffset: 0, day: null, picks: {}, busy: {}, loading: false, failed: false, showNight: false };
+  // ночные часы (до 08:00) бронируют редко: по умолчанию свёрнуты под стрелку
+  var NIGHT_END = 8;
   var MAX_WEEK = 8;
 
   function studioNow() {
@@ -177,11 +179,23 @@
     $('weekGrid').setAttribute('aria-busy', String(state.loading));
     $('slotList').setAttribute('aria-busy', String(state.loading));
 
+    // ночь свёрнута, пока её не раскрыли или пока в ней нет выбранных часов
+    var hasNight = CONFIG.openHour < NIGHT_END;
+    var nightPicked = days.some(function (d) { return (state.picks[d] || []).some(function (h) { return h < NIGHT_END; }); });
+    var showNight = !hasNight || state.showNight || nightPicked;
+    var nightBtn = function () {
+      if (!hasNight || nightPicked) return '';
+      return '<button type="button" class="night-toggle" data-night aria-expanded="' + showNight + '">' +
+        (showNight ? 'Свернуть ночные часы' : 'Ночные часы ' + pad(CONFIG.openHour) + ':00–' + pad(NIGHT_END) + ':00') +
+        '<svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>';
+    };
     var g = '<div></div>';
     days.forEach(function (d, i) {
       g += '<div class="wk-day' + (d === today ? ' today' : '') + '"><b>' + WD[i] + '</b><span>' + dateFromKey(d).getDate() + '</span></div>';
     });
+    g += nightBtn();
     for (var h = CONFIG.openHour; h < CONFIG.closeHour; h += slotH()) {
+      if (!showNight && h < NIGHT_END) continue;
       g += '<div class="wk-time">' + pad(h) + '–' + pad(h + slotH()) + '</div>';
       days.forEach(function (d) { g += slotButton(d, h, false); });
     }
@@ -195,8 +209,8 @@
         ' aria-label="' + fmtLong.format(dateFromKey(d)) + '"><b>' + WD[i] + '</b><span>' + dateFromKey(d).getDate() + '</span></button>';
     });
     $('dayTabs').innerHTML = tabs;
-    var list = '';
-    for (var hh = CONFIG.openHour; hh < CONFIG.closeHour; hh += slotH()) list += slotButton(state.day, hh, true);
+    var list = nightBtn();
+    for (var hh = CONFIG.openHour; hh < CONFIG.closeHour; hh += slotH()) { if (showNight || hh >= NIGHT_END) list += slotButton(state.day, hh, true); }
     $('slotList').innerHTML = list;
 
     if (focusKey) {
@@ -254,7 +268,7 @@
     var i = $(inputId); $(errId).textContent = msg || '';
     if (i) { if (msg) i.setAttribute('aria-invalid', 'true'); else i.removeAttribute('aria-invalid'); }
   }
-  var FIELD_MAP = { name: ['fName', 'eName'], phone: ['fPhone', 'ePhone'], email: ['fEmail', 'eEmail'], consent: ['fConsent', 'eConsent'], pdConsent: ['fPdConsent', 'ePdConsent'] };
+  var FIELD_MAP = { name: ['fName', 'eName'], phone: ['fPhone', 'ePhone'], email: ['fEmail', 'eEmail'], consent: ['fConsent', 'eConsent'], pdConsent: ['fConsent', 'eConsent'] };
 
   function validate() {
     var ok = true, first = null;
@@ -264,9 +278,8 @@
     $('eForm').textContent = '';
     if (name.length < 2) bad('fName', 'eName', 'Введите имя');
     if (phone.length < 10) bad('fPhone', 'ePhone', 'Введите телефон полностью');
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) bad('fEmail', 'eEmail', 'Проверьте почту, например name@mail.ru');
-    if (!$('fConsent').checked) bad('fConsent', 'eConsent', 'Подтвердите, что принимаете правила пользования залом');
-    if (!$('fPdConsent').checked) bad('fPdConsent', 'ePdConsent', 'Без согласия на обработку персональных данных мы не сможем оформить бронь');
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) bad('fEmail', 'eEmail', 'Проверьте почту, например name@mail.ru, или оставьте поле пустым');
+    if (!$('fConsent').checked) bad('fConsent', 'eConsent', 'Отметьте согласие с правилами и на обработку персональных данных, без него бронь не оформить');
     if (first) first.focus();
     return ok;
   }
@@ -472,7 +485,7 @@
         ranges: ranges,
         name: $('fName').value.trim(), phone: $('fPhone').value.trim(), email: email,
         purpose: $('fPurpose').value, people: $('fPeople').value ? Number($('fPeople').value) : null,
-        note: $('fNote').value.trim(), consent: $('fConsent').checked, pdConsent: $('fPdConsent').checked, website: $('fWebsite').value,
+        note: $('fNote').value.trim(), consent: $('fConsent').checked, pdConsent: $('fConsent').checked, website: $('fWebsite').value,
       },
     }).then(function (r) {
       state.picks = {};
@@ -482,7 +495,7 @@
       else openPayment(r, email);
       return loadWeek();
     }).catch(showServerError).then(function () {
-      btn.disabled = false; btn.textContent = 'Забронировать';
+      btn.disabled = false; btn.textContent = 'Оплатить бронь онлайн';
     });
   }
 
@@ -733,6 +746,13 @@
   function bind() {
     $('weekGrid').addEventListener('click', onSlotClick);
     $('slotList').addEventListener('click', onSlotClick);
+    ['weekGrid', 'slotList'].forEach(function (id) {
+      $(id).addEventListener('click', function (e) {
+        if (!e.target.closest('[data-night]')) return;
+        state.showNight = !state.showNight; renderCalendar();
+        var t = $(id).querySelector('[data-night]'); if (t) t.focus({ preventScroll: true });
+      });
+    });
     $('dayTabs').addEventListener('click', function (e) {
       var t = e.target.closest('.daytab'); if (!t || t.disabled) return;
       state.day = t.dataset.day; render();

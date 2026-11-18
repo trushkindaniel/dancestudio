@@ -160,3 +160,14 @@ test('152-ФЗ: шрифты и карта свои — страницы не г
     assert.equal(font.headers.get('content-type'), 'font/woff2');
   } finally { await s.close(); }
 });
+
+test('POST /api/book: почта необязательна, но если указана — проверяется', async () => {
+  const s = await start();
+  try {
+    const ok = await post(`${s.base}/api/book`, body({ email: '' }));
+    assert.equal(ok.status, 201);
+    const bad = await post(`${s.base}/api/book`, body({ email: 'не-почта', hours: [12] }));
+    assert.equal(bad.status, 400);
+    assert.ok((await bad.json()).fields.email);
+  } finally { await s.close(); }
+});

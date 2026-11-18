@@ -156,8 +156,8 @@
             <p class="err" id="ePhone" aria-live="polite"></p>
           </div>
           <div class="field">
-            <label for="fEmail">Почта</label>
-            <input id="fEmail" name="email" type="email" autocomplete="email" required>
+            <label for="fEmail">Почта <span class="opt">необязательно</span></label>
+            <input id="fEmail" name="email" type="email" autocomplete="email" placeholder="пришлём подтверждение брони и чек">
             <p class="err" id="eEmail" aria-live="polite"></p>
           </div>
           <div class="field-row">
@@ -184,20 +184,15 @@
           </div>
           <label class="check">
             <input id="fConsent" type="checkbox" required>
-            <span>Принимаю <a href="#rules">правила пользования залом</a></span>
+            <span>Принимаю <a href="#rules">правила пользования залом</a>, даю <a href="/consent" target="_blank" rel="noopener">согласие на обработку персональных данных</a> и ознакомлен с <a href="/privacy" target="_blank" rel="noopener">политикой обработки</a></span>
           </label>
           <p class="err" id="eConsent" aria-live="polite"></p>
-          <label class="check">
-            <input id="fPdConsent" type="checkbox" required>
-            <span>Даю <a href="/consent" target="_blank" rel="noopener">согласие на обработку персональных данных</a> и ознакомлен с <a href="/privacy" target="_blank" rel="noopener">политикой обработки</a></span>
-          </label>
-          <p class="err" id="ePdConsent" aria-live="polite"></p>
 
           <!-- ловушка для ботов: человек это поле не видит -->
           <div class="hp" aria-hidden="true"><label>Сайт<input id="fWebsite" name="website" type="text" tabindex="-1" autocomplete="off"></label></div>
 
           <p class="err form-err" id="eForm" role="alert"></p>
-          <button class="btn btn-block" id="submitBtn" type="submit">Забронировать</button>
+          <button class="btn btn-block" id="submitBtn" type="submit">Оплатить бронь онлайн</button>
           <p class="hint" id="formHint">Оплата картой или через СБП на следующем шаге. Слот держится 30 минут.</p>
         </form>
       </aside>
@@ -213,7 +208,7 @@
     <ul class="slider" id="hallSlider" data-slider data-count="hallCount" tabindex="0" aria-label="Фото зала, листайте">
       <li class="slide"><img data-zoom="hall" data-full="img/hall-v3.webp" src="img/hall-v3.webp" srcset="img/hall-v3-640.webp 640w, img/hall-v3.webp 1280w" sizes="(max-width: 720px) 86vw, 760px" width="1280" height="964" loading="eager" alt="Основной зал: окна во всю стену, роспись на стене, розовые гамаки, светлый пол"><span class="slide-cap"><b>Основной зал</b><small>1 / 5</small></span></li>
       <li class="slide"><img data-zoom="hall" data-full="img/zone-v2.webp" src="img/zone-v2.webp" srcset="img/zone-v2-640.webp 640w, img/zone-v2.webp 1280w" sizes="(max-width: 720px) 86vw, 760px" width="1280" height="964" loading="lazy" alt="Стена зеркал, розовые гамаки и стеллажи с ковриками и роллами"><span class="slide-cap"><b>Зеркала и инвентарь</b><small>2 / 5</small></span></li>
-      <li class="slide"><img data-zoom="hall" data-full="img/lockers.webp" src="img/lockers.webp" srcset="img/lockers-640.webp 640w, img/lockers.webp 1280w" sizes="(max-width: 720px) 86vw, 760px" width="1280" height="964" loading="lazy" alt="Раздевалка: шкафчики с номерами и скамейки"><span class="slide-cap"><b>Раздевалка</b><small>3 / 5</small></span></li>
+      <li class="slide"><img data-zoom="hall" data-full="img/lockers-v2.webp" src="img/lockers-v2.webp" srcset="img/lockers-v2-640.webp 640w, img/lockers-v2.webp 1280w" sizes="(max-width: 720px) 86vw, 760px" width="1280" height="964" loading="lazy" alt="Раздевалка: шкафчики с номерами и скамейки"><span class="slide-cap"><b>Раздевалка</b><small>3 / 5</small></span></li>
       <li class="slide"><img data-zoom="hall" data-full="img/mirror-v2.webp" src="img/mirror-v2.webp" srcset="img/mirror-v2-640.webp 640w, img/mirror-v2.webp 1280w" sizes="(max-width: 720px) 86vw, 760px" width="1280" height="964" loading="lazy" alt="Зеркало с подсветкой и фен в раздевалке"><span class="slide-cap"><b>Зеркало и фен</b><small>4 / 5</small></span></li>
       <li class="slide"><img data-zoom="hall" data-full="img/reception.webp" src="img/reception.webp" srcset="img/reception-640.webp 640w, img/reception.webp 1280w" sizes="(max-width: 720px) 86vw, 760px" width="1280" height="964" loading="lazy" alt="Ресепшен и зона ожидания со скамейкой"><span class="slide-cap"><b>Ресепшен</b><small>5 / 5</small></span></li>
     </ul>
@@ -231,7 +226,7 @@
   <!-- HOW -->
   <section class="section how">
     <div class="how-photos">
-      <img class="how-a" data-zoom="hall" data-full="img/lockers.webp" src="img/lockers-640.webp" srcset="img/lockers-640.webp 640w, img/lockers.webp 1280w" sizes="(max-width: 960px) 70vw, 340px" width="1280" height="964" loading="lazy" alt="Раздевалка: шкафчики с номерами, скамейки, вешалка">
+      <img class="how-a" data-zoom="hall" data-full="img/lockers-v2.webp" src="img/lockers-v2-640.webp" srcset="img/lockers-v2-640.webp 640w, img/lockers-v2.webp 1280w" sizes="(max-width: 960px) 70vw, 340px" width="1280" height="964" loading="lazy" alt="Раздевалка: шкафчики с номерами, скамейки, вешалка">
       <img class="how-b" data-zoom="hall" data-full="img/mirror-v2.webp" src="img/mirror-v2-640.webp" width="1280" height="964" loading="lazy" alt="Зеркало с подсветкой и фен в раздевалке">
     </div>
     <div class="how-text">
@@ -240,7 +235,7 @@
         <li><span class="num">1</span><div><h3>Выберите время</h3><p>Зал бронируется по часам, от одного часа. Можно взять несколько часов подряд, цена видна сразу.</p></div></li>
         <li><span class="num">2</span><div><h3>Оставьте данные</h3><p>Имя, телефон, почта и, если хотите, формат: тренировка, репетиция, съёмка.</p></div></li>
         <li><span class="num">3</span><div><h3>Оплатите онлайн</h3><p>Картой или через СБП прямо на сайте, в форме ЮKassa.</p></div></li>
-        <li><span class="num">4</span><div><h3>Получите письмо с инструкцией</h3><p>Время, адрес и где взять ключ: за 15 минут до начала в офисе ITB, 3 этаж, офис 307.</p></div></li>
+        <li><span class="num">4</span><div><h3>Получите письмо с инструкцией</h3><p>Время, адрес и где взять ключ: за несколько минут до начала в офисе ITB, 3 этаж, офис 307.</p></div></li>
       </ol>
     </div>
   </section>
@@ -277,7 +272,7 @@
     <div class="rules rules--photos">
       <div class="rules-photos">
         <img data-zoom="hall" data-full="img/mirror-v2.webp" src="img/mirror-v2-640.webp" width="1280" height="964" loading="lazy" alt="Зеркало с подсветкой и фен в раздевалке">
-        <img data-zoom="hall" data-full="img/lockers.webp" src="img/lockers-640.webp" width="1280" height="964" loading="lazy" alt="Раздевалка со шкафчиками">
+        <img data-zoom="hall" data-full="img/lockers-v2.webp" src="img/lockers-v2-640.webp" width="1280" height="964" loading="lazy" alt="Раздевалка со шкафчиками">
       </div>
       <div>
         <h3>В аренду входит</h3>
@@ -286,15 +281,16 @@
           <li>Раздевалка со шкафчиками, зеркало и фен</li>
           <li>Гамаки для аэройоги</li>
         </ul>
+        <p class="ask-gear">Нужно оборудование, которого у нас нет? <a href="tel:+79136581900">Позвоните</a> или напишите в комментарии к брони, постараемся подготовить.</p>
       </div>
       <div>
         <h3>Правила пользования</h3>
         <ol class="ticks rules-steps">
-          <li><span>После оплаты на почту придёт письмо: дата, время, адрес и эта инструкция.</span></li>
-          <li><span><b>За 15 минут до начала аренды</b> зайдите в офис ITB: <b>3 этаж, офис 307</b>, и заберите ключ от зала.</span></li>
+          <li><span>После оплаты на почту придёт письмо: дата, время, адрес и эта инструкция. Если почту не указали, позвоните нам, и мы всё расскажем.</span></li>
+          <li><span><b>За несколько минут до начала аренды</b> зайдите в офис ITB: <b>3 этаж, офис 307</b>, и заберите ключ от зала. Если арендуете постоянно, выдадим вам постоянный ключ.</span></li>
           <li><span>Зал на 11 этаже, помещение 1131. Время аренды считается с начала часа.</span></li>
-          <li><span>Приходите в сменной обуви и оставьте зал чистым.</span></li>
-          <li><span><b>Перед уходом всё закройте:</b> окна, свет, дверь зала.</span></li>
+          <li><span>Приходите в сменной обуви или возьмите ту, что есть в зале, и оставьте зал чистым.</span></li>
+          <li><span><b>Перед уходом всё закройте:</b> окна, свет, дверь зала. Если следующий тренер уже пришёл, можно оставить ему открытым.</span></li>
           <li><span>После аренды <b>верните ключ на стойку ресепшена.</b></span></li>
         </ol>
       </div>

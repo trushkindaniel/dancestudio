@@ -161,3 +161,10 @@ test('HTTP: уведомление ЮKassa, статус брони, имита�
     await new Promise((r) => server.close(r));
   }
 });
+
+test('чек без почты: уходит на телефон в формате ЮKassa', () => {
+  const b = { code: 'AB23', total: 800, date: '2026-11-13', hours: '18-18', hoursCount: 1, email: '', phone: '8 (913) 658-19-00',
+    dateLabel: 'пятница, 13 ноября', timeLabel: '18:00–19:00' };
+  const body = paymentBody(buildConfig({ YOOKASSA_RECEIPT: '1' }), b);
+  assert.deepEqual(body.receipt.customer, { phone: '79136581900' });
+});

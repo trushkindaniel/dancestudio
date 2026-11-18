@@ -10,6 +10,14 @@ const PAYMENT_ID_RE = /^[0-9a-z-]{20,64}$/i;
 const money = (rub) => ({ value: Number(rub).toFixed(2), currency: 'RUB' });
 const cut = (s, n) => (s.length > n ? s.slice(0, n - 1) + '…' : s);
 
+/** «8 (913) 658-19-00» → «79136581900» */
+function ruPhone(s) {
+  let d = String(s || '').replace(/\D/g, '');
+  if (d.length === 11 && d[0] === '8') d = '7' + d.slice(1);
+  if (d.length === 10) d = '7' + d;
+  return d;
+}
+
 function normalize(p) {
   return {
     id: p.id,
@@ -33,7 +41,8 @@ function paymentBody(cfg, b) {
   };
   if (cfg.payment.receipt) {
     body.receipt = {
-      customer: { email: b.email },
+      // чек приходит на почту, а если её нет — СМС на телефон (формат ЮKassa: 79001234567)
+      customer: b.email ? { email: b.email } : { phone: ruPhone(b.phone) },
       items: [{
         description: cut(`Аренда танцевального зала, ${b.hoursCount} ч (бронь ${b.code})`, 128),
         quantity: '1.00',
