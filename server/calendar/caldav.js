@@ -52,6 +52,14 @@ function createCalDavCalendar(cfg, deps = {}) {
   const base = new URL(y.url);
   let calUrl = null;
 
+  // Яндекс после записи события примерно на секунду отвечает «нет такого» (замерено: 0,6 с — 404, 1 с — есть).
+  // Поэтому помним, что сами записали или удалили за последние 30 секунд, и в этом окне верим себе, а не ответу.
+  const clock = deps.clock || Date.now;
+  const RECENT_MS = 30000;
+  const recent = new Map(); // id → { ev | null (удалено), at }
+  const remember = (id, ev) => { recent.set(id, { ev, at: clock() }); };
+  const fresh = (id) => { const r = recent.get(id); if (!r) return null; if (clock() - r.at > RECENT_MS) { recent.delete(id); return null; } return r; };
+
   async function req(method, url, { body, headers = {}, ok = [200, 201, 204, 207] } = {}) {
     const res = await fetchFn(String(url), {
       method,
@@ -118,11 +126,19 @@ function createCalDavCalendar(cfg, deps = {}) {
   });
 
   async function getRaw(id) {
+    const mine = fresh(id);
+    if (mine && !mine.ev) return null; // только что удалили сами, Яндекс может ещё показывать
     const res = await req('GET', await hrefFor(id), { ok: [200, 404, 410] });
-    if (res.status !== 200) return null;
+    if (res.status !== 200) return mine ? { ev: mine.ev } : null; // только что записали, Яндекс ещё не показывает
     const text = await res.text();
     const ev = parseEvents(text, cfg.tz)[0];
     return ev ? { ev, etag: res.headers.get('etag') } : null;
+  }
+
+  /** Записать событие и запомнить его (см. RECENT_MS) */
+  async function put(id, body, headers = {}) {
+    await req('PUT', await hrefFor(id), { headers: { 'Content-Type': 'text/calendar; charset=utf-8', ...headers }, body });
+    remember(id, parseEvents(body, cfg.tz)[0]);
   }
 
   async function query(from, to, expand) {
@@ -131,9 +147,20 @@ function createCalDavCalendar(cfg, deps = {}) {
       body: CAL_QUERY(stamp(from), stamp(to), expand),
     });
     const out = [];
+    const ids = new Set();
     for (const r of responses(await res.text())) {
       if (!r.data) continue;
-      for (const ev of parseEvents(r.data, cfg.tz)) out.push({ id: idFromHref(r.href), ev });
+      const id = idFromHref(r.href);
+      const mine = fresh(id);
+      if (mine && !mine.ev) continue;           // удалили сами, Яндекс ещё показывает
+      ids.add(id);
+      for (const ev of parseEvents(r.data, cfg.tz)) out.push({ id, ev });
+    }
+    // записали сами, а Яндекс ещё не показывает
+    for (const [id] of recent) {
+      const mine = fresh(id);
+      if (!mine || !mine.ev || ids.has(id)) continue;
+      if (mine.ev.end > from && mine.ev.start < to) out.push({ id, ev: mine.ev });
     }
     return out;
   }
@@ -153,10 +180,7 @@ function createCalDavCalendar(cfg, deps = {}) {
       const n = Number(String(ev.private.part || '1/1').split('/')[0]) || 1;
       const id = idFor(ev.private.code, n);
       const body = buildEvent({ uid: id, summary: ev.summary, description: ev.description, start: ev.start, end: ev.end, data: ev.private, stamp: now() });
-      await req('PUT', await hrefFor(id), {
-        headers: { 'Content-Type': 'text/calendar; charset=utf-8', 'If-None-Match': '*' },
-        body,
-      });
+      await put(id, body, { 'If-None-Match': '*' });
       return { id };
     },
 
@@ -201,14 +225,12 @@ function createCalDavCalendar(cfg, deps = {}) {
       });
       // If-Match не шлём: Яндекс отдаёт ETag с хвостом «--gzip», который сам же не принимает.
       // Сервер работает в одном экземпляре и меняет брони под замком, гонки с собой нет.
-      await req('PUT', await hrefFor(id), {
-        headers: { 'Content-Type': 'text/calendar; charset=utf-8' },
-        body,
-      });
+      await put(id, body);
     },
 
     async deleteEvent(id) {
       await req('DELETE', await hrefFor(id), { ok: [200, 204, 404, 410] });
+      remember(id, null);
     },
 
     discover,

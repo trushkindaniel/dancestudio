@@ -11,8 +11,11 @@ const { createFakePayments } = require('../server/payments');
 const NOW = new Date('2026-11-09T07:00:00Z'); // понедельник, 10:00 МСК
 
 /** Поддельный CalDAV-сервер в духе caldav.yandex.ru */
-function fakeCalDav({ calendars = [{ path: '/calendars/user@yandex.ru/events-1/', name: 'Мои события' }, { path: '/calendars/user@yandex.ru/events-2/', name: 'Зал' }], dropXProps = true } = {}) {
+function fakeCalDav({ calendars = [{ path: '/calendars/user@yandex.ru/events-1/', name: 'Мои события' }, { path: '/calendars/user@yandex.ru/events-2/', name: 'Зал' }], dropXProps = true, lag = false } = {}) {
   const store = new Map(); // path → { text, etag }
+  // lag: как Яндекс — после записи событие пару запросов «не видно», после удаления пару запросов «ещё видно»
+  const hidden = new Map(); // path → сколько чтений ещё прятать
+  const ghosts = new Map(); // path → { text, etag, left }
   let etagN = 0;
   const calls = [];
   const xml = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -43,20 +46,31 @@ function fakeCalDav({ calendars = [{ path: '/calendars/user@yandex.ru/events-1/'
       if (dropXProps) text = text.split('\r\n').filter((l) => !l.startsWith('X-')).join('\r\n');
       const etag = `"${++etagN}"`;
       store.set(key, { text, etag });
+      if (lag) hidden.set(key, 2);
       return reply(cur ? 204 : 201, '');
     }
     if (method === 'GET') {
+      if (hidden.get(u.pathname) > 0) { hidden.set(u.pathname, hidden.get(u.pathname) - 1); return reply(404, 'not found'); }
+      const g = ghosts.get(u.pathname);
+      if (g && g.left > 0) { g.left--; return reply(200, g.text, { etag: g.etag }); }
       const cur = store.get(u.pathname);
       return cur ? reply(200, cur.text, { etag: cur.etag + '--gzip' }) : reply(404, 'not found');
     }
-    if (method === 'DELETE') return reply(store.delete(u.pathname) ? 204 : 404);
+    if (method === 'DELETE') {
+      const cur = store.get(u.pathname);
+      if (lag && cur) ghosts.set(u.pathname, { ...cur, left: 2 });
+      return reply(store.delete(u.pathname) ? 204 : 404);
+    }
     if (method === 'REPORT') {
       const [, s, e] = /time-range start="(\w+)" end="(\w+)"/.exec(init.body);
       const p = (x) => new Date(`${x.slice(0, 4)}-${x.slice(4, 6)}-${x.slice(6, 8)}T${x.slice(9, 11)}:${x.slice(11, 13)}:${x.slice(13, 15)}Z`);
       const from = p(s); const to = p(e);
       const rows = [];
-      for (const [path, v] of store) {
+      const all = new Map([...store, ...[...ghosts].filter(([, g]) => g.left > 0)]);
+      for (const [path, v] of all) {
         if (!path.startsWith(u.pathname)) continue;
+        if (hidden.get(path) > 0) { hidden.set(path, hidden.get(path) - 1); continue; }
+        if (ghosts.has(path) && !store.has(path)) ghosts.get(path).left--;
         const ev = parseEvents(v.text, 'UTC')[0];
         if (ev.end > from && ev.start < to) rows.push(`<d:response><d:href>${path}</d:href><d:propstat><d:prop><d:getetag>${v.etag}</d:getetag><cal:calendar-data>${xml(v.text)}</cal:calendar-data></d:prop></d:propstat></d:response>`);
       }
@@ -198,4 +212,30 @@ test('caldav: свои события администратора тоже за
   await assert.rejects(booking.book(order({ ranges: [{ date: '2026-11-13', hours: [16] }] })), /заняли/);
   const ok = await booking.book(order({ ranges: [{ date: '2026-11-13', hours: [17] }] }));
   assert.ok(ok.code);
+});
+
+test('caldav: Яндекс секунду «не видит» только что записанное — сайт верит своей записи', async () => {
+  const f = fakeCalDav({ lag: true });
+  const { booking, calendar, payments } = service(f);
+  const r = await booking.book(order({ ranges: [{ date: '2026-11-13', hours: [12] }] }));
+  // сразу после брони: статус «ждёт оплаты», а не «бронь пропала»
+  assert.equal((await booking.status(r.code, r.token)).status, 'pending');
+  // вторая бронь на тот же час в ту же секунду не проходит
+  await assert.rejects(booking.book(order({ ranges: [{ date: '2026-11-13', hours: [12] }], email: 'b@example.com' })), /заняли/);
+  // оплата прошла: подтверждение и повторные проверки сразу после него не приводят к возврату денег
+  const [ev] = await calendar.findAllByCode(r.code);
+  payments._set(ev.private.paymentId, 'succeeded');
+  assert.equal((await booking.status(r.code, r.token)).status, 'paid');
+  assert.equal((await booking.status(r.code, r.token)).status, 'paid');
+  assert.equal(payments._refunds.length, 0, 'оплаченную бронь нельзя вернуть из-за задержки календаря');
+});
+
+test('caldav: после отмены Яндекс ещё секунду показывает событие — время уже свободно', async () => {
+  const f = fakeCalDav({ lag: true });
+  const { booking } = service(f);
+  const r = await booking.book(order({ ranges: [{ date: '2026-11-13', hours: [12] }] }));
+  await booking.cancel(r.code, r.token);
+  assert.equal((await booking.status(r.code, r.token)).status, 'gone');
+  const again = await booking.book(order({ ranges: [{ date: '2026-11-13', hours: [12] }], email: 'c@example.com' }));
+  assert.ok(again.code);
 });
