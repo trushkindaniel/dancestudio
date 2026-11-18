@@ -304,7 +304,7 @@
     Object.keys(FIELD_MAP).forEach(function (k) { setErr(FIELD_MAP[k][0], FIELD_MAP[k][1]); });
     $('eForm').textContent = '';
     if (name.length < 2) bad('fName', 'eName', 'Введите имя');
-    if (phone.length < 10) bad('fPhone', 'ePhone', 'Введите телефон полностью');
+    if (phoneDigits($('fPhone').value).length < 10) bad('fPhone', 'ePhone', 'Введите телефон полностью: +7 и 10 цифр');
     if (weekly() && !email) bad('fEmail', 'eEmail', 'Для постоянной брони нужна почта: пришлём ссылку для управления и чеки');
     else if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) bad('fEmail', 'eEmail', 'Проверьте почту, например name@mail.ru, или оставьте поле пустым');
     if (weekly() && !$('fAutopay').checked) bad('fAutopay', 'eAutopay', 'Отметьте согласие на автоматическое списание или выберите «Разово»');
@@ -808,6 +808,60 @@
   setupLightbox();
   setupToTop();
 
+  // ---------- маска телефона: +7 (913) 658-19-00 ----------
+  // Работает через событие input: мобильные клавиатуры (Android, iOS) часто не присылают keydown с цифрой.
+  // Из введённого берём только цифры номера и собираем его заново; курсор ставим после того же числа цифр.
+  /** 10 цифр номера без кода страны. Понимает «+7…», «8…», «7…», вставку целого номера. */
+  function phoneDigits(v) {
+    var s = String(v || ''), d;
+    if (/^\s*\+\s*7/.test(s)) d = s.replace(/^\s*\+\s*7/, '').replace(/\D/g, '');
+    else { d = s.replace(/\D/g, ''); if (d.length > 10 && (d[0] === '7' || d[0] === '8')) d = d.slice(1); }
+    if (d.length === 11 && (d[0] === '7' || d[0] === '8')) d = d.slice(1);   // вставили «89136581900» после «+7 (»
+    return d.slice(0, 10);
+  }
+  function phoneFormat(d) {
+    if (!d) return '+7 (';
+    var s = '+7 (' + d.slice(0, 3);
+    if (d.length > 3) s += ') ' + d.slice(3, 6);
+    if (d.length > 6) s += '-' + d.slice(6, 8);
+    if (d.length > 8) s += '-' + d.slice(8, 10);
+    return s;
+  }
+  function setupPhoneMask() {
+    var el = $('fPhone'), prev = '';
+    el.setAttribute('inputmode', 'tel');
+    el.placeholder = '+7 (___) ___-__-__';
+    var apply = function (e) {
+      var raw = el.value;
+      var caret = el.selectionStart == null ? raw.length : el.selectionStart;
+      var d = phoneDigits(raw);
+      var before = Math.min(phoneDigits(raw.slice(0, caret)).length, d.length);
+      var prevD = phoneDigits(prev);
+      // первой набрали 8 или 7 по привычке — это код страны, он уже стоит
+      if (!prevD && d.length === 1 && (d === '8' || d === '7')) { d = ''; before = 0; }
+      // стёрли скобку, пробел или дефис — цифры не изменились: стираем цифру перед ним
+      if (e && e.inputType && e.inputType.indexOf('delete') === 0 && d === prevD && raw.length < prev.length && before > 0) {
+        d = d.slice(0, before - 1) + d.slice(before);
+        before -= 1;
+      }
+      var out = phoneFormat(d);
+      el.value = out; prev = out;
+      var pos = out.length;
+      if (before < d.length) {
+        pos = 4;                                          // сразу после «+7 (»
+        for (var i = 4, seen = 0; i < out.length && seen < before; i++) if (/\d/.test(out[i])) { seen++; pos = i + 1; }
+      }
+      if (document.activeElement === el && el.setSelectionRange) { try { el.setSelectionRange(pos, pos); } catch (err) {} }
+    };
+    el.addEventListener('input', apply);
+    el.addEventListener('focus', function () {
+      if (!el.value) { el.value = '+7 ('; prev = el.value; }
+      setTimeout(function () { if (el.setSelectionRange && phoneDigits(el.value).length === 0) el.setSelectionRange(4, 4); }, 0);
+    });
+    el.addEventListener('blur', function () { if (!phoneDigits(el.value)) { el.value = ''; prev = ''; } });
+    if (el.value) apply();
+  }
+
   function bind() {
     $('weekGrid').addEventListener('click', onSlotClick);
     $('slotList').addEventListener('click', onSlotClick);
@@ -833,6 +887,7 @@
     ['fName', 'fPhone', 'fEmail'].forEach(function (id) {
       $(id).addEventListener('input', function () { $(id).removeAttribute('aria-invalid'); $('e' + id.slice(1)).textContent = ''; });
     });
+    setupPhoneMask();
     $('bookForm').addEventListener('submit', onSubmit);
     $('payClose').addEventListener('click', function () { dlg.close(); });
     var paying = function () { return current && current.online && !$('payWidget').hidden; };
