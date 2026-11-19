@@ -178,7 +178,7 @@
       return '<li class="' + (w.past ? 'past ' : '') + (w.status === 'paid' ? 'paid' : '') + '"><span>' + esc(w.label) + '</span><b>' + esc(w.statusLabel) + '</b></li>';
     }).join('');
     cab.innerHTML =
-      (demo ? '<p class="cab-demo">Пример личного кабинета: так клиент видит свою постоянную бронь. Данные на этой странице условные, отмена здесь ничего не меняет.</p>' : '') +
+      (demo ? '<p class="cab-demo">Пример личного кабинета: так клиент видит свою постоянную бронь. Данные на этой странице условные, отмена здесь ничего не меняет. Как клиент оформляет постоянную бронь: <a href="/?subs=preview#booking">форма записи</a>.</p>' : '') +
       '<div class="cab-user"><div class="cab-ava" aria-hidden="true">' + esc((s.name || '?').trim().charAt(0).toUpperCase()) + '</div>' +
         '<div><p class="cab-kicker">Личный кабинет</p><h1 class="cab-name">' + esc(s.name) + '</h1></div></div>' +
       '<h2>Моя постоянная бронь</h2>' +

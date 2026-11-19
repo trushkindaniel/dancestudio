@@ -256,13 +256,16 @@
 
   // ---------- постоянная бронь ----------
   var EVERY = ['каждый понедельник', 'каждый вторник', 'каждую среду', 'каждый четверг', 'каждую пятницу', 'каждую субботу', 'каждое воскресенье'];
-  function weekly() { var w = document.querySelector('input[name="freq"][value="weekly"]'); return Boolean(CONFIG && CONFIG.subscriptions && w && w.checked); }
+  // ?subs=preview — показать вариант «Каждую неделю» для проверки ЮKassa, пока автоплатежи не включены (оформить нельзя)
+  var SUBS_PREVIEW = /[?&]subs=preview(&|$)/.test(location.search);
+  function subsCfg() { return (CONFIG && CONFIG.subscriptions) || (SUBS_PREVIEW ? { weeks: 8, chargeDaysBefore: 3, preview: true } : null); }
+  function weekly() { var w = document.querySelector('input[name="freq"][value="weekly"]'); return Boolean(subsCfg() && w && w.checked); }
   function weekSpanBad() {
     var d = pickedRanges().map(function (r) { return r.date; }).sort();
     return d.length > 1 && daysBetween(d[0], d[d.length - 1]) > 6;
   }
   function updateFreq() {
-    var s = CONFIG && CONFIG.subscriptions;
+    var s = subsCfg();
     $('freqBox').hidden = !s;
     var on = weekly();
     $('weeklyInfo').hidden = !on;
@@ -540,6 +543,10 @@
   function onSubmit(e) {
     e.preventDefault();
     if (!validate()) return;
+    if (weekly() && subsCfg().preview) {
+      $('eForm').innerHTML = 'Это демонстрация: постоянная бронь заработает, когда ЮKassa включит автоплатежи. После оплаты первого занятия клиент попадает в <a href="/subscription?demo=1">личный кабинет постоянной брони</a>.';
+      return;
+    }
     var ranges = pickedRanges(), btn = $('submitBtn'), email = $('fEmail').value.trim();
     btn.disabled = true; btn.textContent = 'Отправляем…';
     api('/api/book', {
