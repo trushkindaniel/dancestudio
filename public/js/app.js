@@ -8,7 +8,7 @@
   var pad = function (n) { return (n < 10 ? '0' : '') + n; };
   var nf = new Intl.NumberFormat('ru-RU');
   var num = function (n) { return nf.format(n).replace(/ /g, ' '); };
-  var money = function (n) { return num(n) + ' ₽'; };
+  var money = function (n) { return num(n) + ' ₽'; };   // неразрывный пробел: «₽» не уходит на новую строку
   var plural = function (n, f) { var a = n % 10, b = n % 100; return f[(b > 10 && b < 20) ? 2 : a === 1 ? 0 : (a > 1 && a < 5) ? 1 : 2]; };
 
   var fmtLong = new Intl.DateTimeFormat('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' });

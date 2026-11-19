@@ -309,9 +309,9 @@ h3 { font-family: var(--font-body); font-weight: 700; font-size: 18px; line-heig
 .chosen-time { font-family: var(--font-serif); font-weight: 600; font-size: 40px; line-height: 1.1; margin-top: 2px; font-variant-numeric: lining-nums; }
 .lines { margin-top: 10px; color: var(--muted); font-size: 14px; }
 .lines li { display: flex; justify-content: space-between; padding: 2px 0; }
-.total { display: flex; justify-content: space-between; align-items: baseline; margin-top: 12px; }
+.total { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-top: 12px; }
 .total span { color: var(--muted); }
-.total b { font-family: var(--font-serif); font-weight: 600; font-size: 40px; line-height: 1; color: var(--spark); }
+.total b { font-family: var(--font-serif); font-weight: 600; font-size: 40px; line-height: 1; color: var(--spark); white-space: nowrap; flex: 0 0 auto; }
 
 .field { margin-bottom: 14px; }
 label { display: block; font-weight: 600; font-size: 14px; margin-bottom: 6px; }
