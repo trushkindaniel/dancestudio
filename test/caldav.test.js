@@ -94,7 +94,7 @@ function service(fetch, extra) {
   const sent = [];
   const notify = Object.fromEntries(['created', 'paid', 'expired', 'cancelled', 'refunded'].map((k) => [k, async (b) => sent.push([k, b])]));
   const payments = createFakePayments(cfg);
-  const booking = createBookingService({ calendar, cfg, notify, payments, now: () => clock.now, log: { error() {}, log() {} } });
+  const booking = createBookingService({ calendar, cfg, notify, payments, now: () => clock.now, log: { error() {}, log() {} }, releaseTimers: false });
   return { cfg, calendar, booking, payments, sent, clock };
 }
 

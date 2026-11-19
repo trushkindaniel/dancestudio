@@ -135,3 +135,43 @@ test('оплата по СБП: отдельный платёж с перехо�
   await assert.rejects(booking.payBySbp(r.code, r.token), (x) => x.status === 409);
   assert.ok(cfg);
 });
+
+test('срок на оплату вышел: при проверке статуса время освобождается сразу, без фоновой проверки', async () => {
+  const { booking, clock, sent } = makeEnv({ PAYMENT_PROVIDER: 'fake' });
+  const r = await booking.book(order([{ date: '2026-11-13', hours: [12] }]));
+  assert.ok((await booking.getBusy('2026-11-13', '2026-11-13'))['2026-11-13'].includes(12));
+  clock.now = new Date(NOW.getTime() + 3 * 3600 * 1000);
+  const st = await booking.status(r.code, r.token);
+  assert.equal(st.status, 'gone');
+  assert.deepEqual((await booking.getBusy('2026-11-13', '2026-11-13'))['2026-11-13'], []);
+  assert.ok(sent.some((x) => x[0] === 'expired'));
+});
+
+test('срок вышел, но оплата успела пройти в последние секунды — бронь остаётся оплаченной', async () => {
+  const { booking, calendar, payments, clock } = makeEnv({ PAYMENT_PROVIDER: 'fake' });
+  const r = await booking.book(order([{ date: '2026-11-13', hours: [12] }]));
+  const [ev] = await calendar.findAllByCode(r.code);
+  payments._set(ev.private.paymentId, 'succeeded');
+  clock.now = new Date(NOW.getTime() + 3 * 3600 * 1000);
+  assert.equal(await booking.releaseIfExpired(r.code), false);
+  assert.equal((await booking.status(r.code, r.token)).status, 'paid');
+  assert.equal(payments._refunds.length, 0);
+});
+
+test('таймер: неоплаченная бронь снимается сама ровно по сроку, без фоновой проверки', async () => {
+  const { createMemoryCalendar } = require('../server/calendar/memory');
+  const { createBookingService } = require('../server/booking');
+  const { createFakePayments } = require('../server/payments');
+  const T = require('../server/time');
+  const cfg = buildConfig({ CALENDAR_DRIVER: 'memory', PAYMENT_PROVIDER: 'fake', STUDIO_TZ: 'Europe/Moscow', SLOT_HOURS: '1', HOLD_MINUTES: '0.01' });
+  const calendar = createMemoryCalendar();
+  const sent = [];
+  const notify = Object.fromEntries(['created', 'paid', 'expired', 'cancelled', 'refunded'].map((k) => [k, async (b) => sent.push(k)]));
+  const booking = createBookingService({ calendar, cfg, notify, payments: createFakePayments(cfg), log: { error() {}, log() {} } });
+  const date = T.addDays(T.nowInTz(new Date(), 'Europe/Moscow').date, 2);
+  const r = await booking.book({ ...valid(), date: undefined, hours: undefined, ranges: [{ date, hours: [12] }] });
+  assert.equal((await calendar.findAllByCode(r.code)).length, 1);
+  await new Promise((res) => setTimeout(res, 3500));                 // срок 0,6 с + 2 с запаса
+  assert.equal((await calendar.findAllByCode(r.code)).length, 0);
+  assert.ok(sent.includes('expired'));
+});

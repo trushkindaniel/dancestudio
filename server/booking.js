@@ -24,7 +24,7 @@ const plural = (n, f) => { const a = n % 10, b = n % 100; return f[(b > 10 && b 
 /**
  * @param payments null для оплаты переводом, иначе createPayments(...) (ЮKassa или имитация)
  */
-function createBookingService({ calendar, cfg, notify, payments = null, now = () => new Date(), log = console }) {
+function createBookingService({ calendar, cfg, notify, payments = null, now = () => new Date(), log = console, releaseTimers = true }) {
   // Двое могут нажать «Забронировать» одновременно, а уведомление ЮKassa может прийти одновременно с фоновой проверкой.
   // Всё, что меняет брони, выполняем по очереди. Работает, пока сервер запущен в одном экземпляре.
   let chain = Promise.resolve();
@@ -214,6 +214,13 @@ function createBookingService({ calendar, cfg, notify, payments = null, now = ()
     return { code, token, deadline, parts, order, online, confirmationToken, paymentId, created, total };
   }
 
+  /** Через срок на оплату (+2 с) снять неоплаченную бронь, не дожидаясь фоновой проверки раз в минуту */
+  function scheduleRelease(code) {
+    if (!releaseTimers) return;
+    const t = setTimeout(() => { releaseIfExpired(code).catch((e) => log.error(`[expire] бронь ${code}:`, e.message)); }, cfg.holdMinutes * 60000 + 2000);
+    if (t.unref) t.unref();
+  }
+
   /** Ответ браузеру после создания брони */
   function orderResponse(o) {
     const first = o.parts[0];
@@ -242,6 +249,7 @@ function createBookingService({ calendar, cfg, notify, payments = null, now = ()
       }
       const o = await createOrder(v);
       await notify.created({ ...o.order, online: o.online, deadlineLabel: fmtDeadline(o.deadline) });
+      scheduleRelease(o.code);
       return orderResponse(o);
     });
   }
@@ -349,6 +357,27 @@ function createBookingService({ calendar, cfg, notify, payments = null, now = ()
     });
   }
 
+  /**
+   * Снять бронь, если срок на оплату вышел (под замком). Перед этим ещё раз спрашиваем ЮKassa:
+   * вдруг оплата успела пройти в последние секунды. Возвращает true, если время освобождено.
+   */
+  async function releaseIfExpired(code) {
+    const pend = (await calendar.findAllByCode(code)).filter((e) => e.private.status === 'pending');
+    if (!pend.length || new Date(pend[0].private.expiresAt) > now()) return false;
+    const pid = pend[0].private.paymentId;
+    if (pid && payments) {
+      try { const r = await syncPayment(pid); if (r === 'paid' || r === 'released' || r === 'refunded') return r === 'released'; } catch (e) { log.error(`[pay] бронь ${code}: платёж ${pid}:`, e.message); }
+    }
+    return withLock(async () => {
+      const fresh = (await calendar.findAllByCode(code)).filter((e) => e.private.status === 'pending');
+      if (!fresh.length || new Date(fresh[0].private.expiresAt) > now()) return false;
+      for (const e of fresh) await calendar.deleteEvent(e.id);
+      if (hooks.onDropped) await hooks.onDropped(fresh);
+      await notify.expired(describe(fresh));
+      return true;
+    });
+  }
+
   /** Статус брони для клиента после оплаты в виджете. */
   async function status(code, token) {
     let evs = await findOwned(code, token);
@@ -361,6 +390,12 @@ function createBookingService({ calendar, cfg, notify, payments = null, now = ()
       } catch (e) {
         log.error(`[pay] статус ${code}:`, e.message);
       }
+    }
+    // срок на оплату вышел, а оплаты нет — время освобождаем сразу, не дожидаясь фоновой проверки
+    if (evs[0].private.status === 'pending' && new Date(evs[0].private.expiresAt) <= now()) {
+      if (await releaseIfExpired(code)) return { status: 'gone', reason: 'expired' };
+      evs = await findOwned(code, token);
+      if (!evs) return { status: 'gone' };
     }
     const d = describe(evs);
     const st = evs.every((e) => e.private.status === 'paid') ? 'paid' : 'pending';
@@ -395,16 +430,7 @@ function createBookingService({ calendar, cfg, notify, payments = null, now = ()
           if (r === 'released') { result.released++; continue; }
           if (r === 'refunded') { result.refunded++; continue; }
         }
-        if (new Date(evs[0].private.expiresAt) <= now()) {
-          await withLock(async () => {
-            const fresh = (await calendar.findAllByCode(code)).filter((e) => e.private.status === 'pending');
-            if (!fresh.length) return;
-            for (const e of fresh) await calendar.deleteEvent(e.id);
-            if (hooks.onDropped) await hooks.onDropped(fresh);
-            await notify.expired(describe(fresh));
-            result.expired++;
-          });
-        }
+        if (new Date(evs[0].private.expiresAt) <= now() && await releaseIfExpired(code)) result.expired++;
       } catch (e) {
         result.errors++;
         log.error(`[sweep] бронь ${code}:`, e.message);
@@ -414,10 +440,10 @@ function createBookingService({ calendar, cfg, notify, payments = null, now = ()
   }
 
   return {
-    getBusy, book, cancel, status, syncPayment, sweep, payBySbp,
+    getBusy, book, cancel, status, syncPayment, sweep, payBySbp, releaseIfExpired,
     setSubscriptions(s, h) { subs = s; hooks = h || {}; },
     // для server/subscriptions.js
-    _internal: { withLock, describe, labels, toParts, uniqueCode, createEvents, createOrder, orderResponse, markPaid, fmtDeadline },
+    _internal: { withLock, describe, labels, toParts, uniqueCode, createEvents, createOrder, orderResponse, markPaid, fmtDeadline, scheduleRelease },
   };
 }
 

@@ -26,7 +26,7 @@ function env(extra = {}) {
   const notify = Object.fromEntries(['created', 'paid', 'expired', 'cancelled', 'refunded'].map((k) => [k, async (b) => sent.push([k, b])]));
   notify.subscription = async (kind, s) => sent.push(['sub:' + kind, s]);
   const log = { error() {}, log() {} };
-  const booking = createBookingService({ calendar, cfg, notify, payments, now, log });
+  const booking = createBookingService({ calendar, cfg, notify, payments, now, log, releaseTimers: false });
   const store = createJsonStore(null);
   const subs = createSubscriptionService({ calendar, cfg, notify, payments, booking, store, now, log });
   booking.setSubscriptions(subs, subs.hooks);

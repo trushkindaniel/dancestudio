@@ -350,6 +350,7 @@
       stopTimer(); destroyWidget();
       chip('Время вышло, бронь снята', true);
       $('payStatus').textContent = 'Оплата не поступила вовремя, слот освобождён. Выберите время заново.';
+      if (current) { var gone = current; setTimeout(function () { api('/api/book/' + gone.code + '?token=' + gone.token).catch(function () {}).then(loadWeek); }, 2500); }
       $('payCancel').hidden = true; $('payClose').hidden = false;
       current = null;
       loadWeek();
@@ -362,13 +363,15 @@
   function chip(text, bad) { $('payChip').textContent = text; $('payChip').classList.toggle('cancelled', !!bad); }
 
   // какие части окна видны: transfer (реквизиты), widget (форма ЮKassa), status (итог оплаты)
+  var payState = '';   // widget | retry | transfer | status
   function payMode(mode) {
     $('paySumLine').hidden = mode !== 'transfer'; $('payReq').hidden = mode !== 'transfer'; $('payNote').hidden = mode !== 'transfer';
+    payState = mode;
     $('payTimer').hidden = mode === 'status'; $('payWidget').hidden = mode !== 'widget';
     $('payStatus').hidden = mode === 'transfer';
-    $('payClose').hidden = mode === 'widget';      // во время оплаты окно закрывается только отменой брони
+    $('payClose').hidden = mode === 'widget' || mode === 'retry';   // во время оплаты окно закрывается только отменой брони
     $('payCancel').hidden = mode === 'status';
-    if (mode !== 'widget') $('paySbp').hidden = true;
+    if (mode !== 'widget' && mode !== 'retry') $('paySbp').hidden = true;
   }
 
   function fillHead(r) {
@@ -485,7 +488,20 @@
     if (fakepay) { payMode('widget'); $('paySbp').hidden = true; return renderFakeWidget(fakepay); }  // режим разработки
     chip('Проверяем оплату');
     $('payStatus').textContent = 'Проверяем платёж по СБП, это несколько секунд.';
-    pollStatus(code, token, 0);
+    pollStatus(code, token, 0, 'sbp');
+  }
+
+  // вернулись со страницы СБП, а оплаты нет: оплатить ещё раз или отменить бронь (время сразу освободится)
+  function sbpUnfinished(r) {
+    if (!current) return;
+    current.deadline = r.deadline ? new Date(r.deadline).getTime() : current.deadline;
+    payMode('retry');
+    chip('Ожидает оплаты');
+    $('payTitle').textContent = 'Бронь ' + current.code + ' не оплачена';
+    $('payStatus').textContent = 'Оплата по СБП не завершена. Попробуйте ещё раз или отмените бронь, тогда время сразу освободится.';
+    $('paySbp').hidden = false;
+    var b = $('sbpBtn'); b.disabled = false; b.textContent = 'Оплатить по СБП ещё раз';
+    if (current.deadline) { stopTimer(); tick(); timerId = setInterval(tick, 1000); }
   }
 
   // режим разработки: вместо формы ЮKassa две кнопки, деньги не списываются
@@ -512,7 +528,7 @@
     pollStatus(c.code, c.token, 0);
   }
 
-  function pollStatus(code, token, tries) {
+  function pollStatus(code, token, tries, via) {
     api('/api/book/' + code + '?token=' + token).then(function (r) {
       if (r.status === 'paid') {
         var sub = current && current.sub, mail = current && current.email;
@@ -525,7 +541,8 @@
         $('payMail').textContent = sub ? 'Письмо со ссылкой для управления и отмены ушло на вашу почту.' : (mail ? 'Подтверждение с адресом и инструкцией ушло на ' + mail + '.' : 'Ключ возьмите за несколько минут до начала в офисе ITB, 3 этаж, офис 307. Вопросы: 8 913 658-19-00.');
         loadWeek();
       } else if (r.status === 'pending') {
-        if (tries < 20) return setTimeout(function () { pollStatus(code, token, tries + 1); }, 3000);
+        if (via === 'sbp' && tries >= 4) return sbpUnfinished(r);   // ~12 секунд: платёж СБП так и не завершён
+        if (tries < 20) return setTimeout(function () { pollStatus(code, token, tries + 1, via); }, 3000);
         $('payStatus').textContent = 'Банк ещё не ответил. Как только оплата пройдёт, мы пришлём письмо.';
       } else {
         current = null;
@@ -899,13 +916,13 @@
     $('payClose').addEventListener('click', function () { dlg.close(); });
     // крестик: пока идёт оплата, закрыть окно — значит отказаться от брони (слот освобождается); иначе просто закрыть
     $('payX').addEventListener('click', function () {
-      if (current && current.online && !$('payWidget').hidden) {
+      if (current && current.online && (payState === 'widget' || payState === 'retry')) {
         if (confirm('Закрыть оплату? Бронь будет снята, а время освободится.')) onCancel();
         return;
       }
       dlg.close();
     });
-    var paying = function () { return current && current.online && !$('payWidget').hidden; };
+    var paying = function () { return current && current.online && (payState === 'widget' || payState === 'retry'); };
     dlg.addEventListener('cancel', function (e) { if (paying()) e.preventDefault(); });
     $('payCancel').addEventListener('click', onCancel);
     dlg.addEventListener('click', function (e) { if (e.target === dlg && !paying()) dlg.close(); });

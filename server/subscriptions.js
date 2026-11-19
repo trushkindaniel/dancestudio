@@ -130,6 +130,7 @@ function createSubscriptionService({ calendar, cfg, notify, payments, store, boo
       }
       store.put(sub);
       await notify.created({ ...o.order, online: o.online, deadlineLabel: B.fmtDeadline(o.deadline), subscription: info(sub) });
+      B.scheduleRelease(o.code);
       return { ...B.orderResponse(o), subscription: { id: sub.id, schedule: schedule(sub), weeks: S.weeks, weekTotal: sub.weekTotal, chargeDaysBefore: S.chargeDaysBefore } };
     });
   }

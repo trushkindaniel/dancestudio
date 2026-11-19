@@ -22,7 +22,7 @@ function makeEnv(extra = {}) {
     refunded: async (b) => sent.push(['refunded', b]),
   };
   const clock = { now: NOW };
-  const booking = createBookingService({ calendar, cfg, notify, payments, now: () => clock.now, log: { error() {}, log() {} } });
+  const booking = createBookingService({ calendar, cfg, notify, payments, now: () => clock.now, log: { error() {}, log() {} }, releaseTimers: false });
   return { cfg, calendar, notify, sent, clock, booking, payments };
 }
 
