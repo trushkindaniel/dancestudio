@@ -77,6 +77,9 @@
   .auth-note a, .auth-card p a { color: var(--violet); }
   .auth-sent { display: grid; gap: 4px; padding: 16px; border-radius: 14px; background: #e8f4ec; border: 1px solid #bfdfca; color: #22663e; }
   .auth-sent b { color: #1c4f31; }
+  .code-input { flex: 0 1 220px !important; font-size: 24px; letter-spacing: .35em; text-align: center; font-variant-numeric: tabular-nums; }
+  .link-btn { display: inline; min-height: 0; padding: 0; border: 0; background: none; color: var(--violet); font: inherit; line-height: inherit; vertical-align: baseline; text-decoration: underline; cursor: pointer; }
+  .link-btn:disabled { color: var(--muted); text-decoration: none; cursor: default; }
   .sub-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: -20px 0 24px; }
   .sub-tabs button { min-height: 40px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--text); font: inherit; font-size: 14px; cursor: pointer; }
   .sub-tabs button[aria-pressed="true"] { background: var(--violet); border-color: var(--violet); color: #fff; }
@@ -209,7 +212,7 @@
   if (q.get('paid')) { q.delete('paid'); history.replaceState(null, '', location.pathname + '?' + q.toString()); }
 
   // ---------- вход и регистрация по почте ----------
-  var account = null, loginAt = q.get('login');
+  var account = null;
   var LOGIN_HEAD = '<div class="cab-user"><div class="cab-ava guest" aria-hidden="true">55</div><div><p class="cab-kicker">Личный кабинет</p><h1 class="cab-name">Вход и регистрация</h1></div></div>';
   var api = function (url, opts) {
     return fetch(url, opts).then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { if (!r.ok) { var e = new Error(j.message || 'Ошибка'); e.status = r.status; throw e; } return j; }); });
@@ -218,30 +221,76 @@
   function renderLogin(err, email) {
     cab.innerHTML = LOGIN_HEAD +
       '<section class="card auth-card"><h2>Войти по почте</h2>' +
-      '<p>Введите почту, на которую оформляли бронь. Пришлём ссылку для входа. Если вы у нас впервые, по ссылке из письма создастся личный кабинет.</p>' +
+      '<p>Введите почту, на которую оформляли бронь. Пришлём код для входа. Если вы у нас впервые, по коду создастся личный кабинет.</p>' +
       '<form id="loginForm" novalidate><label for="loginEmail">Почта</label>' +
       '<div class="auth-row"><input id="loginEmail" type="email" inputmode="email" autocomplete="email" placeholder="name@mail.ru" required value="' + esc(email || '') + '">' +
-      '<button class="btn" type="submit" id="loginBtn">Получить ссылку</button></div>' +
+      '<button class="btn" type="submit" id="loginBtn">Получить код</button></div>' +
       '<p class="auth-err" id="loginErr" role="alert">' + esc(err || '') + '</p></form>' +
-      '<p class="auth-note">Пароль не нужен: входите по ссылке из письма, она действует 30 минут. Нажимая кнопку, вы соглашаетесь с <a href="/privacy">политикой обработки персональных данных</a>.</p></section>' +
+      '<p class="auth-note">Пароль не нужен: каждый раз входите по коду из письма. Нажимая кнопку, вы соглашаетесь с <a href="/privacy">политикой обработки персональных данных</a>.</p></section>' +
       '<p class="auth-note" style="margin-top:20px"><a href="/subscription?demo=1">Посмотреть пример кабинета</a></p>';
-    document.getElementById('loginForm').onsubmit = sendLink;
+    document.getElementById('loginForm').onsubmit = sendCode;
   }
 
-  function sendLink(e) {
+  function sendCode(e) {
     e.preventDefault();
     var input = document.getElementById('loginEmail'), btn = document.getElementById('loginBtn'), errEl = document.getElementById('loginErr');
     var email = input.value.trim();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) { errEl.textContent = 'Проверьте почту, например name@mail.ru'; input.setAttribute('aria-invalid', 'true'); input.focus(); return; }
     input.removeAttribute('aria-invalid'); errEl.textContent = ''; btn.disabled = true; btn.textContent = 'Отправляем…';
-    api('/api/auth/request', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: email }) })
-      .then(function (j) {
-        cab.innerHTML = LOGIN_HEAD + '<section class="card auth-card"><h2>Проверьте почту</h2>' +
-          '<div class="auth-sent"><span>Отправили ссылку для входа на</span><b>' + esc(j.email) + '</b></div>' +
-          '<p>Откройте письмо и нажмите «Войти в кабинет». Ссылка действует 30 минут. Письма нет? Проверьте папку «Спам» или <a href="#" id="again">отправьте ещё раз</a>.</p></section>';
-        document.getElementById('again').onclick = function (ev) { ev.preventDefault(); renderLogin('', j.email); };
-      })
-      .catch(function (x) { btn.disabled = false; btn.textContent = 'Получить ссылку'; errEl.textContent = x.message === 'Failed to fetch' ? 'Нет связи с сервером, попробуйте ещё раз' : x.message; });
+    requestCode(email).catch(function (x) { btn.disabled = false; btn.textContent = 'Получить код'; errEl.textContent = x.message; });
+  }
+
+  function requestCode(email) {
+    return api('/api/auth/request', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: email }) })
+      .then(function (j) { renderCode(j.email, j.minutes || 10); })
+      .catch(function (x) { if (x.message === 'Failed to fetch') x.message = 'Нет связи с сервером, попробуйте ещё раз'; throw x; });
+  }
+
+  // шаг 2: код из письма (письмо можно открыть на телефоне, а код ввести здесь)
+  var resendTimer = null;
+  function renderCode(email, minutes) {
+    cab.innerHTML = LOGIN_HEAD + '<section class="card auth-card"><h2>Введите код из письма</h2>' +
+      '<div class="auth-sent"><span>Отправили 6-значный код на</span><b>' + esc(email) + '</b></div>' +
+      '<form id="codeForm" novalidate style="margin-top:18px"><label for="loginCode">Код</label>' +
+      '<div class="auth-row"><input id="loginCode" class="code-input" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]*" maxlength="6" placeholder="••••••" required>' +
+      '<button class="btn" type="submit" id="codeBtn">Войти</button></div>' +
+      '<p class="auth-err" id="codeErr" role="alert"></p></form>' +
+      '<p class="auth-note">Код действует ' + minutes + ' минут. Письмо можно открыть на телефоне, а код ввести здесь. Нет письма? Проверьте «Спам» или ' +
+      '<button class="link-btn" type="button" id="resend" disabled>отправьте код ещё раз</button>. <button class="link-btn" type="button" id="otherMail">Другая почта</button></p></section>';
+    var input = document.getElementById('loginCode'), resend = document.getElementById('resend');
+    input.focus();
+    input.addEventListener('input', function () {
+      input.value = input.value.replace(/\D/g, '').slice(0, 6);
+      document.getElementById('codeErr').textContent = '';
+      input.removeAttribute('aria-invalid');
+      if (input.value.length === 6) verifyCode(email);
+    });
+    document.getElementById('codeForm').onsubmit = function (ev) { ev.preventDefault(); verifyCode(email); };
+    document.getElementById('otherMail').onclick = function () { clearInterval(resendTimer); renderLogin('', email); };
+    // повторная отправка — через 60 секунд
+    var left = 60;
+    var tick = function () { resend.textContent = left > 0 ? 'отправьте код ещё раз (через ' + left + ' с)' : 'отправьте код ещё раз'; resend.disabled = left > 0; left--; if (left < -1) clearInterval(resendTimer); };
+    clearInterval(resendTimer); tick(); resendTimer = setInterval(tick, 1000);
+    resend.onclick = function () {
+      resend.disabled = true;
+      requestCode(email).catch(function (x) { document.getElementById('codeErr').textContent = x.message; resend.disabled = false; });
+    };
+  }
+
+  var verifying = false;
+  function verifyCode(email) {
+    var input = document.getElementById('loginCode'), btn = document.getElementById('codeBtn'), errEl = document.getElementById('codeErr');
+    var code = input.value.replace(/\D/g, '');
+    if (code.length !== 6) { errEl.textContent = 'Код из 6 цифр'; input.setAttribute('aria-invalid', 'true'); input.focus(); return; }
+    if (verifying) return;
+    verifying = true; btn.disabled = true; btn.textContent = 'Проверяем…';
+    api('/api/auth/verify', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: email, code: code }) })
+      .then(function () { verifying = false; clearInterval(resendTimer); loadAccount(); })
+      .catch(function (x) {
+        verifying = false; btn.disabled = false; btn.textContent = 'Войти';
+        errEl.textContent = x.message === 'Failed to fetch' ? 'Нет связи с сервером, попробуйте ещё раз' : x.message;
+        input.setAttribute('aria-invalid', 'true'); input.select();
+      });
   }
 
   function logout() {
@@ -308,14 +357,6 @@
 
   function load() {
     if (demo) return render(JSON.parse(JSON.stringify(DEMO)));
-    if (loginAt) {
-      // ссылка из письма: вход (и регистрация при первом входе), потом убираем ссылку из адреса
-      var tok = loginAt; loginAt = null;
-      q.delete('login'); history.replaceState(null, '', location.pathname + (q.toString() ? '?' + q.toString() : ''));
-      return api('/api/auth/verify', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: tok }) })
-        .then(loadAccount)
-        .catch(function (e) { renderLogin(e.message === 'Failed to fetch' ? 'Нет связи с сервером, обновите страницу' : e.message); });
-    }
     if (!id || !t) return loadAccount();
     // ссылка из письма о постоянной брони работает и без входа; если вход выполнен, видны и остальные брони
     if (/(?:^|;\s*)az55_in=1/.test(document.cookie)) return loadAccount();

@@ -109,7 +109,7 @@ function buildConfig(env = process.env) {
       secret: env.AUTH_SECRET || '',
       secretFile: path.join(path.resolve(__dirname, '..'), 'data', 'auth-secret'),
       accountsFile: env.ACCOUNTS_FILE || path.join(path.resolve(__dirname, '..'), 'data', 'accounts.json'),
-      loginMinutes: num(env, 'LOGIN_LINK_MINUTES', 30),
+      codeMinutes: num(env, 'LOGIN_CODE_MINUTES', 10),
       sessionDays: num(env, 'SESSION_DAYS', 30),
     },
 

@@ -153,7 +153,7 @@ function createApp({ cfg, booking, calendar, payments = null, subs = null, auth 
         const body = await readJson(req);
         const email = String((body && body.email) || '').trim().toLowerCase();
         if (!allow(`login:${ip}`, 6, 10 * 60_000) || !allow(`login:${email}`, 3, 10 * 60_000)) throw new AppError(429, 'rate_limit', 'Слишком много запросов. Проверьте почту или попробуйте через 10 минут.');
-        return send(res, 200, await auth.requestLink(body));
+        return send(res, 200, await auth.requestCode(body));
       }
       if (req.method === 'POST' && pathname === '/api/auth/verify') {
         if (!allow(`verify:${ip}`, 20, 10 * 60_000)) throw new AppError(429, 'rate_limit', 'Слишком много попыток');
