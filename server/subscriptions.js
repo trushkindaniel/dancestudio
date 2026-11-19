@@ -141,7 +141,7 @@ function createSubscriptionService({ calendar, cfg, notify, payments, store, boo
     if (!sub) return;
     const k = Number(priv.week);
     const w = weekOf(sub, k);
-    if (w) { w.status = 'paid'; w.paymentId = p.id; }
+    if (w) { w.status = 'paid'; w.paymentId = p.id; w.paidAt = now().toISOString(); w.amount = p.amount; }
     if (k === 0 && sub.status === 'pending') {
       if (p.paymentMethod && p.paymentMethod.saved) {
         sub.paymentMethod = { id: p.paymentMethod.id, title: p.paymentMethod.title || 'карта' };
@@ -181,7 +181,7 @@ function createSubscriptionService({ calendar, cfg, notify, payments, store, boo
         return 'refunded';
       }
       await B.markPaid(evs, { paymentId: p.id });
-      w.status = 'paid'; w.paymentId = p.id;
+      w.status = 'paid'; w.paymentId = p.id; w.paidAt = now().toISOString(); w.amount = p.amount;
       return 'paid';
     }
     if (p.status === 'canceled') {
@@ -288,15 +288,34 @@ function createSubscriptionService({ calendar, cfg, notify, payments, store, boo
     return sub;
   }
 
+  const fmtDate = (ms) => new Date(ms).toLocaleDateString('ru-RU', { timeZone: cfg.tz, day: '2-digit', month: '2-digit', year: 'numeric' });
+
   function view(id, token) {
     const sub = owned(id, token);
     if (!sub) throw new AppError(404, 'not_found', 'Постоянная бронь не найдена');
     const t = now().getTime();
     const STATUS = { pending: 'ждёт первой оплаты', reserved: 'закреплено', charging: 'списываем оплату', paid: 'оплачено', released: 'освобождено', skipped: 'время было занято' };
+    const weeks = [...sub.weeks].sort((a, b) => a.k - b.k);
+    const amountOf = (w) => w.amount || weekParts(sub, w.k).reduce((s, x) => s + x.total, 0);
+    // следующее списание: ближайшая закреплённая неделя
+    const next = weeks.find((w) => ['reserved', 'charging'].includes(w.status) && weekStart(sub, w.k) > t);
+    const nextChargeAt = next ? Math.max(t, weekStart(sub, next.k) - S.chargeDaysBefore * DAY) : null;
+    // до какого числа время закреплено или оплачено
+    const held = weeks.filter((w) => ['reserved', 'charging', 'paid', 'pending'].includes(w.status) && weekStart(sub, w.k) > t);
+    const paidAhead = weeks.filter((w) => w.status === 'paid' && weekStart(sub, w.k) > t);
+    const lastHeld = held.length ? weekStart(sub, held[held.length - 1].k) : null;
+    const lastPaid = paidAhead.length ? weekStart(sub, paidAhead[paidAhead.length - 1].k) : null;
     return {
       id: sub.id, status: sub.status, schedule: schedule(sub), weekTotal: sub.weekTotal, card: sub.paymentMethod ? sub.paymentMethod.title : '',
       chargeDaysBefore: S.chargeDaysBefore, name: sub.name,
-      weeks: [...sub.weeks].sort((a, b) => a.k - b.k).filter((w) => weekStart(sub, w.k) > t - 7 * DAY)
+      createdAt: fmtDate(Date.parse(sub.createdAt)),
+      nextChargeAt: sub.status === 'active' && nextChargeAt ? fmtDate(nextChargeAt) : null,
+      nextChargeAmount: next ? amountOf(next) : null,
+      heldUntil: lastHeld ? fmtDate(lastHeld) : null,       // время закреплено до (активная бронь продлевается сама)
+      paidUntil: lastPaid ? fmtDate(lastPaid) : null,       // оплаченные занятия останутся до
+      payments: weeks.filter((w) => w.status === 'paid').reverse()
+        .map((w) => ({ date: fmtDate(Date.parse(w.paidAt || '') || weekStart(sub, w.k)), lesson: weekLabel(sub, w.k), amount: amountOf(w), status: 'оплачено' })),
+      weeks: weeks.filter((w) => weekStart(sub, w.k) > t - 7 * DAY)
         .map((w) => ({ label: weekLabel(sub, w.k), status: w.status, statusLabel: STATUS[w.status] || w.status, past: weekStart(sub, w.k) <= t })),
     };
   }

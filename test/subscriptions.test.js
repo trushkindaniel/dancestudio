@@ -216,3 +216,27 @@ test('автосписание «в обработке», потом уведо�
   await e.subs.tick();
   assert.equal(w1.status, 'paid');
 });
+
+test('личный кабинет: дата оформления, следующее списание, карта, история платежей', async () => {
+  const e = env();
+  const { sub } = await startActive(e);
+  let v = e.subs.view(sub.id, sub.token);
+  assert.equal(v.createdAt, '09.11.2026');
+  assert.equal(v.nextChargeAt, '15.11.2026');        // за 3 дня до занятия 18.11
+  assert.equal(v.nextChargeAmount, 800);
+  assert.equal(v.card, 'Bank card *4444');
+  assert.equal(v.payments.length, 1);
+  assert.equal(v.payments[0].amount, 800);
+  assert.match(v.payments[0].lesson, /11 ноября/);
+  e.clock.now = new Date(at('2026-11-15', 12).getTime() + 60000);
+  await e.subs.tick();
+  v = e.subs.view(sub.id, sub.token);
+  assert.equal(v.payments.length, 2);
+  assert.equal(v.payments[0].date, '15.11.2026');     // свежие сверху
+  assert.equal(v.paidUntil, '18.11.2026');
+  await e.subs.cancel(sub.id, sub.token);
+  v = e.subs.view(sub.id, sub.token);
+  assert.equal(v.status, 'cancelled');
+  assert.equal(v.nextChargeAt, null);
+  assert.equal(v.paidUntil, '18.11.2026');
+});

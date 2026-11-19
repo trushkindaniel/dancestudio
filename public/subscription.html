@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Постоянная бронь — Аренда зала 55</title>
+<title>Личный кабинет — постоянная бронь — Аренда зала 55</title>
 <meta name="robots" content="noindex">
 <meta name="theme-color" content="#f8f2eb">
 <link rel="icon" href="/icons/favicon-32.png" type="image/png" sizes="32x32">
@@ -13,30 +13,104 @@
 <link rel="stylesheet" href="/css/fonts.css">
 <link rel="stylesheet" href="/css/styles.css">
 <style>
-  .sub-card { margin-top: 8px; padding: clamp(18px, 4vw, 28px); border-radius: var(--r-lg); background: var(--surface); border: 1px solid var(--line); }
-  .sub-state { display: inline-flex; padding: 4px 12px; border-radius: 999px; font-weight: 600; font-size: 13px; background: var(--surface-2); color: var(--violet); }
-  .sub-state.off { color: var(--muted); }
-  .doc .sub-weeks { list-style: none; padding: 0; margin: 12px 0 0; display: grid; gap: 6px; }
-  .doc .sub-weeks li { max-width: none; margin: 0; }
-  .sub-weeks li { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line-soft); font-size: 15px; }
-  .sub-weeks li.past { color: var(--muted); }
-  .sub-weeks b { font-weight: 600; white-space: nowrap; }
-  .sub-weeks .paid b { color: #2f7a4b; }
-  .sub-actions { margin-top: 24px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
-  .doc .sub-msg { color: var(--muted); }
+  .cab { max-width: 1120px; margin: 0 auto; padding: clamp(28px, 5vw, 56px) var(--gutter) 0; }
+  .cab-demo { margin: 0 0 24px; padding: 12px 16px; border-radius: 14px; background: var(--surface-2); border: 1px dashed var(--line); color: var(--muted); font-size: 14px; }
+  .cab-user { display: flex; align-items: center; gap: 18px; margin-bottom: 36px; }
+  .cab-ava { position: relative; flex: 0 0 auto; display: grid; place-items: center; width: 64px; height: 64px; border-radius: 50%; background: var(--violet); color: var(--ink); font-family: var(--font-serif); font-weight: 600; font-size: 30px; }
+  .cab-ava::after { content: ""; position: absolute; right: 2px; bottom: 2px; width: 12px; height: 12px; border-radius: 50%; background: #3fa66b; border: 2px solid var(--bg); }
+  .cab-kicker { margin: 0; font-size: 12px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+  .cab-name { margin: 2px 0 0; font-family: var(--font-serif); font-weight: 600; font-size: clamp(26px, 4vw, 34px); line-height: 1.15; color: var(--text); text-align: left; }
+  .cab-name::before, .cab h2::before { content: none; }
+  .cab h2 { margin: 0 0 16px; font-family: var(--font-serif); font-weight: 600; font-size: clamp(22px, 3vw, 28px); text-align: left; color: var(--text); }
+  .card { padding: clamp(18px, 3vw, 28px); border-radius: var(--r-lg); background: var(--surface); border: 1px solid var(--line); }
+  .plan { display: grid; grid-template-columns: auto 1fr auto; gap: 16px 20px; align-items: start; margin-bottom: 24px; }
+  .plan-ico { display: grid; place-items: center; width: 56px; height: 56px; border-radius: 16px; background: var(--surface-2); border: 1px solid var(--line); color: var(--spark); }
+  .plan-title { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; font-weight: 700; font-size: 20px; color: var(--text); }
+  .plan-tag { padding: 3px 10px; border-radius: 999px; background: var(--surface-2); color: var(--violet); font-size: 13px; font-weight: 700; }
+  .plan-sub { margin: 6px 0 0; color: var(--muted); font-size: 15px; }
+  .plan-state { justify-self: end; padding: 10px 16px; border-radius: 14px; font-size: 13px; line-height: 1.35; text-align: left; }
+  .plan-state b { display: block; font-size: 16px; }
+  .plan-state.on { background: #e8f4ec; color: #22663e; border: 1px solid #bfdfca; }
+  .plan-state.off { background: var(--surface-2); color: var(--muted); border: 1px solid var(--line); }
+  .plan-actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 12px; }
+  .grid2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; margin-top: 20px; }
+  .rows { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+  .rows li { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 14px 16px; border-radius: 14px; background: var(--bg); border: 1px solid var(--line-soft); font-size: 15px; }
+  .rows span { color: var(--muted); }
+  .rows b { text-align: right; }
+  .pay-table { width: 100%; border-collapse: collapse; font-size: 15px; }
+  .pay-table th { padding: 10px 12px; text-align: left; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); background: var(--bg); }
+  .pay-table th:last-child, .pay-table td:last-child { text-align: right; }
+  .pay-table td { padding: 12px; border-top: 1px solid var(--line-soft); vertical-align: top; }
+  .pay-table td small { display: block; color: var(--muted); font-size: 13px; }
+  .pay-table .sum { color: var(--violet); font-weight: 700; white-space: nowrap; }
+  .ok-chip { display: inline-block; padding: 3px 10px; border-radius: 999px; background: #e8f4ec; color: #22663e; font-size: 13px; font-weight: 700; white-space: nowrap; }
+  .empty-pay { margin: 0; color: var(--muted); font-size: 15px; }
+  .lessons { margin-top: 20px; }
+  .lessons ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; }
+  .lessons li { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line-soft); font-size: 15px; }
+  .lessons li.past { color: var(--muted); }
+  .lessons li b { font-weight: 600; white-space: nowrap; }
+  .lessons li.paid b { color: #22663e; }
+  .cab-msg { color: var(--muted); }
+  .btn-danger { background: #c9433f; border-color: #c9433f; color: #fff; }
+  .btn-danger:hover { background: #a93532; border-color: #a93532; }
+  /* окно подтверждения отмены */
+  .confirm { width: min(520px, calc(100vw - 32px)); padding: 0; border: 0; border-radius: 22px; background: var(--surface); color: var(--text); box-shadow: 0 30px 80px -30px rgba(40, 25, 20, .5); }
+  .confirm::backdrop { background: rgba(31, 24, 20, .55); backdrop-filter: blur(4px); }
+  .confirm-body { position: relative; padding: 36px clamp(20px, 5vw, 36px) 28px; text-align: center; }
+  .confirm-x { position: absolute; top: 14px; right: 14px; width: 40px; height: 40px; border-radius: 50%; border: 0; background: var(--surface-2); color: var(--muted); font-size: 20px; cursor: pointer; }
+  .confirm-ico { display: grid; place-items: center; width: 72px; height: 72px; margin: 0 auto 16px; border-radius: 50%; background: #fbe6e5; color: #c9433f; }
+  .confirm h3 { margin: 0 0 8px; font-family: var(--font-serif); font-weight: 600; font-size: 28px; }
+  .confirm p { margin: 0 0 18px; color: var(--muted); }
+  .confirm-card { display: flex; align-items: center; gap: 14px; margin: 0 0 12px; padding: 14px 16px; border-radius: 14px; background: var(--bg); border: 1px solid var(--line); text-align: left; }
+  .confirm-card small { display: block; color: var(--muted); font-size: 13px; }
+  .confirm-card b { font-size: 16px; }
+  .confirm-warn { display: flex; gap: 10px; margin: 0 0 22px; padding: 14px 16px; border-radius: 14px; background: #fdf1f0; border: 1px solid #f3d3d1; text-align: left; font-size: 14px; line-height: 1.5; color: var(--text); }
+  .confirm-warn svg { flex: 0 0 auto; margin-top: 2px; color: #c9433f; }
+  .confirm-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 860px) {
+    .grid2 { grid-template-columns: 1fr; }
+    .plan { grid-template-columns: auto 1fr; }
+    .plan-state { grid-column: 1 / -1; justify-self: stretch; }
+  }
+  @media (max-width: 480px) {
+    .confirm-actions { grid-template-columns: 1fr; }
+    .plan-actions .btn { flex: 1 1 100%; }
+    .pay-table th:nth-child(2), .pay-table td:nth-child(2) { display: none; }
+  }
 </style>
 </head>
 <body class="doc-page">
 
-<header class="doc-top">
+<header class="doc-top" style="max-width:1120px">
   <a class="logo" href="/">Аренда зала 55</a>
   <a class="doc-back" href="/#booking">← На главную</a>
 </header>
 
-<main class="doc">
-  <h1>Постоянная бронь</h1>
-  <div id="box"><p class="sub-msg">Загружаем…</p></div>
-</main>
+<main class="cab" id="cab"><p class="cab-msg">Загружаем…</p></main>
+
+<dialog class="confirm" id="confirm" aria-labelledby="confirmTitle">
+  <div class="confirm-body">
+    <button class="confirm-x" type="button" data-close aria-label="Закрыть">×</button>
+    <div class="confirm-ico"><svg width="34" height="34" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 7v6M12 16.5v.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></div>
+    <h3 id="confirmTitle">Отмена постоянной брони</h3>
+    <p>Уверены, что хотите отменить постоянную бронь?</p>
+    <div class="confirm-card">
+      <svg width="28" height="28" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5.5" width="18" height="13" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M3 10h18M7 15h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      <div><small>Способ оплаты</small><b id="confirmCard"></b></div>
+    </div>
+    <div class="confirm-warn">
+      <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 7v6M12 16.5v.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+      <span id="confirmWarn"></span>
+    </div>
+    <div class="confirm-actions">
+      <button class="btn btn-danger" type="button" id="confirmYes">Отменить бронь</button>
+      <button class="btn btn-ghost" type="button" data-close>Назад</button>
+    </div>
+    <p class="cab-msg" id="confirmErr" style="margin:12px 0 0"></p>
+  </div>
+</dialog>
 
 <footer class="foot">
   <div class="foot-brand">
@@ -45,50 +119,111 @@
   </div>
   <div class="foot-side">
     <p class="foot-req">ИП Нарольский Владимир Владимирович<br>ИНН 550709511064</p>
+    <p class="foot-links"><a href="/privacy">Политика обработки персональных данных</a><a href="/consent">Согласие на обработку данных</a></p>
   </div>
 </footer>
 
 <script>
 (function () {
-  var q = new URLSearchParams(location.search), id = q.get('id') || '', t = q.get('t') || '';
-  var box = document.getElementById('box');
-  var esc = function (s) { return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+  var q = new URLSearchParams(location.search), id = q.get('id') || '', t = q.get('t') || '', demo = q.get('demo') === '1';
+  var cab = document.getElementById('cab'), dlg = document.getElementById('confirm');
+  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
   var money = function (n) { return new Intl.NumberFormat('ru-RU').format(n) + ' ₽'; };
-  var STATE = { pending: 'ждёт первой оплаты', active: 'действует', paused: 'на паузе', cancelled: 'отменена' };
+  var cap = function (s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; };
+  var data = null;
+
+  // пример для проверки ЮKassa и для показа: так клиент видит свою постоянную бронь
+  var DEMO = {
+    id: 'SDEMO00', status: 'active', name: 'Ирина Смирнова', schedule: 'каждую среду 12:00–13:00', weekTotal: 800, card: 'Bank card *4444',
+    chargeDaysBefore: 3, createdAt: '04.11.2026', nextChargeAt: '22.11.2026', nextChargeAmount: 800, heldUntil: '13.01.2027', paidUntil: '18.11.2026',
+    payments: [
+      { date: '15.11.2026', lesson: 'среда, 18 ноября, 12:00–13:00', amount: 800, status: 'оплачено' },
+      { date: '08.11.2026', lesson: 'среда, 11 ноября, 12:00–13:00', amount: 800, status: 'оплачено' },
+      { date: '04.11.2026', lesson: 'среда, 4 ноября, 12:00–13:00', amount: 800, status: 'оплачено' },
+    ],
+    weeks: [
+      { label: 'среда, 18 ноября, 12:00–13:00', status: 'paid', statusLabel: 'оплачено' },
+      { label: 'среда, 25 ноября, 12:00–13:00', status: 'reserved', statusLabel: 'закреплено' },
+      { label: 'среда, 2 декабря, 12:00–13:00', status: 'reserved', statusLabel: 'закреплено' },
+      { label: 'среда, 9 декабря, 12:00–13:00', status: 'reserved', statusLabel: 'закреплено' },
+    ],
+  };
 
   function load() {
+    if (demo) return render(JSON.parse(JSON.stringify(DEMO)));
     fetch('/api/sub/' + encodeURIComponent(id) + '?t=' + encodeURIComponent(t)).then(function (r) {
       return r.json().then(function (j) { if (!r.ok) throw new Error(j.message || 'Ошибка'); return j; });
     }).then(render).catch(function (e) {
-      box.innerHTML = '<p class="sub-msg">' + esc(e.message === 'Failed to fetch' ? 'Нет связи с сервером, обновите страницу.' : e.message) + '. Проверьте ссылку из письма или позвоните нам.</p>';
+      cab.innerHTML = '<p class="cab-msg">' + esc(e.message === 'Failed to fetch' ? 'Нет связи с сервером, обновите страницу' : e.message) + '. Откройте ссылку из письма ещё раз или позвоните нам: <a href="tel:+79136581900">8 913 658-19-00</a>.</p>';
     });
   }
 
+  function stateBadge(s) {
+    if (s.status === 'active') return '<div class="plan-state on">Активна, время закреплено до<b>' + esc(s.heldUntil || '—') + '</b></div>';
+    if (s.status === 'pending') return '<div class="plan-state off">Ждёт первой оплаты</div>';
+    if (s.status === 'paused') return '<div class="plan-state off">На паузе' + (s.paidUntil ? ', оплачено до<b>' + esc(s.paidUntil) + '</b>' : '') + '</div>';
+    return '<div class="plan-state off">Отменена' + (s.paidUntil ? ', оплачено до<b>' + esc(s.paidUntil) + '</b>' : '') + '</div>';
+  }
+
   function render(s) {
+    data = s;
     var active = s.status === 'active' || s.status === 'pending';
-    var weeks = s.weeks.map(function (w) {
+    var pays = s.payments.length
+      ? '<table class="pay-table"><thead><tr><th>Дата</th><th>Занятие</th><th>Сумма</th><th>Статус</th></tr></thead><tbody>' +
+        s.payments.map(function (p) {
+          return '<tr><td>' + esc(p.date) + '</td><td><small>' + esc(p.lesson) + '</small></td><td class="sum">' + money(p.amount) + '</td><td><span class="ok-chip">' + esc(p.status) + '</span></td></tr>';
+        }).join('') + '</tbody></table>'
+      : '<p class="empty-pay">Платежей пока нет.</p>';
+    var lessons = s.weeks.map(function (w) {
       return '<li class="' + (w.past ? 'past ' : '') + (w.status === 'paid' ? 'paid' : '') + '"><span>' + esc(w.label) + '</span><b>' + esc(w.statusLabel) + '</b></li>';
     }).join('');
-    box.innerHTML =
-      '<div class="sub-card">' +
-        '<p><span class="sub-state' + (active ? '' : ' off') + '">' + esc(STATE[s.status] || s.status) + '</span></p>' +
-        '<h2>' + esc(s.schedule) + '</h2>' +
-        '<p>' + money(s.weekTotal) + ' в неделю' + (s.card ? ', списывается с карты ' + esc(s.card) : '') + ' за ' + s.chargeDaysBefore + ' дн. до каждого занятия.</p>' +
-        '<ul class="sub-weeks">' + weeks + '</ul>' +
-        (active
-          ? '<div class="sub-actions"><button class="btn btn-ghost" id="cancelBtn" type="button">Отменить постоянную бронь</button><span class="sub-msg" id="cancelMsg"></span></div>' +
-            '<p class="sub-msg" style="margin-top:12px;font-size:14px;">Оплаченные занятия останутся за вами, будущие неоплаченные освободятся, автосписаний больше не будет.</p>'
-          : '<p class="sub-msg">Автосписаний нет. Чтобы снова закрепить время, оформите постоянную бронь на главной странице.</p>') +
-      '</div>';
+    cab.innerHTML =
+      (demo ? '<p class="cab-demo">Пример личного кабинета: так клиент видит свою постоянную бронь. Данные на этой странице условные, отмена здесь ничего не меняет.</p>' : '') +
+      '<div class="cab-user"><div class="cab-ava" aria-hidden="true">' + esc((s.name || '?').trim().charAt(0).toUpperCase()) + '</div>' +
+        '<div><p class="cab-kicker">Личный кабинет</p><h1 class="cab-name">' + esc(s.name) + '</h1></div></div>' +
+      '<h2>Моя постоянная бронь</h2>' +
+      '<section class="card"><div class="plan">' +
+        '<div class="plan-ico" aria-hidden="true"><svg width="26" height="26" viewBox="0 0 24 24"><path d="M12 2.5l2.4 6.6 6.6 2.4-6.6 2.4L12 20.5l-2.4-6.6L3 11.5l6.6-2.4z" fill="currentColor"/></svg></div>' +
+        '<div><p class="plan-title">' + esc(cap(s.schedule)) + ' <span class="plan-tag">' + money(s.weekTotal) + ' в неделю</span></p>' +
+          '<p class="plan-sub">Аренда зала 55 · Омск, ул. Фрунзе, 1 к4, 11 этаж, помещение 1131</p></div>' +
+        stateBadge(s) +
+        '<div class="plan-actions">' +
+          '<a class="btn" href="tel:+79136581900">Изменить время</a>' +
+          (active ? '<button class="btn btn-ghost" type="button" id="cancelBtn">Отменить постоянную бронь</button>' : '') +
+        '</div></div>' +
+        (active ? '<p class="cab-msg" style="margin:0;font-size:14px">Оплата за каждое занятие списывается с карты автоматически за ' + s.chargeDaysBefore + ' дн. до занятия. Чтобы перенести время, позвоните нам.</p>'
+                : '<p class="cab-msg" style="margin:0;font-size:14px">Автосписаний нет. Чтобы снова закрепить время, оформите постоянную бронь на главной странице или позвоните нам.</p>') +
+      '</section>' +
+      '<div class="grid2">' +
+        '<section class="card"><h2>Информация о брони</h2><ul class="rows">' +
+          '<li><span>Дата оформления</span><b>' + esc(s.createdAt) + '</b></li>' +
+          '<li><span>Дата следующего списания</span><b>' + (s.nextChargeAt ? esc(s.nextChargeAt) + ' · ' + money(s.nextChargeAmount) : '—') + '</b></li>' +
+          '<li><span>Способ оплаты</span><b>' + esc(s.card || '—') + '</b></li>' +
+        '</ul></section>' +
+        '<section class="card"><h2>История платежей</h2>' + pays + '</section>' +
+      '</div>' +
+      '<section class="card lessons"><h2>Ближайшие занятия</h2><ul>' + lessons + '</ul></section>';
     var b = document.getElementById('cancelBtn');
-    if (b) b.onclick = function () {
-      if (!confirm('Отменить постоянную бронь? Будущие неоплаченные занятия освободятся.')) return;
-      b.disabled = true;
-      fetch('/api/sub/' + encodeURIComponent(id) + '/cancel?t=' + encodeURIComponent(t), { method: 'POST' })
-        .then(function (r) { if (!r.ok) throw new Error(); load(); })
-        .catch(function () { b.disabled = false; document.getElementById('cancelMsg').textContent = 'Не получилось, попробуйте ещё раз или позвоните нам.'; });
-    };
+    if (b) b.onclick = openConfirm;
   }
+
+  function openConfirm() {
+    document.getElementById('confirmCard').textContent = data.card || 'карта';
+    document.getElementById('confirmWarn').textContent = 'После отмены автосписаний больше не будет, закреплённое время освободится.' +
+      (data.paidUntil ? ' Оплаченные занятия останутся за вами, последнее — ' + data.paidUntil + '.' : '');
+    document.getElementById('confirmErr').textContent = '';
+    dlg.showModal();
+  }
+
+  dlg.addEventListener('click', function (e) { if (e.target.closest('[data-close]') || e.target === dlg) dlg.close(); });
+  document.getElementById('confirmYes').onclick = function () {
+    var yes = this; yes.disabled = true;
+    var done = function () { yes.disabled = false; dlg.close(); };
+    if (demo) { data.status = 'cancelled'; data.nextChargeAt = null; data.weeks = data.weeks.map(function (w) { return w.status === 'paid' ? w : { label: w.label, status: 'released', statusLabel: 'освобождено' }; }); render(data); return done(); }
+    fetch('/api/sub/' + encodeURIComponent(id) + '/cancel?t=' + encodeURIComponent(t), { method: 'POST' })
+      .then(function (r) { if (!r.ok) throw new Error(); done(); load(); })
+      .catch(function () { yes.disabled = false; document.getElementById('confirmErr').textContent = 'Не получилось, попробуйте ещё раз или позвоните нам.'; });
+  };
   load();
 })();
 </script>
