@@ -420,3 +420,36 @@ test('ЮKassa 403 «can\'t make recurring payments» → платёж без с�
   const plain = await yk.createPayment({ ...b, savePaymentMethod: false, idempotenceKey: 'pay-X' });
   assert.equal(plain.saveDeferred, undefined);
 });
+
+test('тестовая запись для показа кабинета: отвязка и привязка карты работают, календарь не трогается, списаний нет', async () => {
+  const e = env();
+  e.payments._noRecurring(true);
+  const sub = {
+    id: 'STESTAA', token: 'a'.repeat(24), status: 'active', createdAt: NOW.toISOString(), test: true, linkMode: true,
+    name: 'Проверка ЮKassa', phone: '', email: 'admin@example.com', purpose: '', people: '', note: '',
+    slots: [{ date: '2026-11-18', first: 19, last: 19, total: 1000 }], weekTotal: 1000,
+    weeks: Array.from({ length: 8 }, (_, k) => ({ k, code: `T00${k}`, status: 'reserved', paymentId: null, attempts: 0, nextTryAt: null })),
+    paymentMethod: { id: null, title: 'Bank card *4444' },
+  };
+  e.store.put(sub);
+  const size = e.calendar._size();
+  let v = await e.subs.view(sub.id, sub.token);
+  assert.equal(v.card, 'Bank card *4444');
+  assert.ok(v.nextChargeAt);
+  await e.subs.unbindCard(sub.id, sub.token);
+  v = await e.subs.view(sub.id, sub.token);
+  assert.equal(v.card, '');
+  assert.equal(v.status, 'paused');
+  await e.subs.startBind(sub.id, sub.token);
+  e.payments._set(sub.bindPaymentId, 'succeeded');
+  assert.equal((await e.subs.bindStatus(sub.id, sub.token)).status, 'bound');
+  v = await e.subs.view(sub.id, sub.token);
+  assert.equal(v.status, 'active');
+  assert.equal(v.weeks.filter((w) => w.status === 'reserved').length, 8);
+  e.clock.now = new Date(at('2026-11-15', 20).getTime());            // окно «списания» — у тестовой записи ничего не происходит
+  await e.subs.tick();
+  assert.equal(sub.weeks.filter((w) => w.status === 'reserved').length, 8);
+  assert.equal(e.calendar._size(), size);
+  await e.subs.cancel(sub.id, sub.token);
+  assert.equal((await e.subs.view(sub.id, sub.token)).status, 'cancelled');
+});

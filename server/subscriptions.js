@@ -312,9 +312,9 @@ function createSubscriptionService({ calendar, cfg, notify, payments, store, boo
       const parts = weekParts(sub, w.k);
       const from = T.zonedToUtc(parts[0].date, 0, cfg.tz);
       const busy = await calendar.listBusy(new Date(from.getTime() - DAY), new Date(from.getTime() + 8 * DAY));
-      if (!parts.some((p) => overlaps(busy, p))) await reserve(sub, w.k);
+      if (sub.test || !parts.some((p) => overlaps(busy, p))) await reserve(sub, w.k);
     }
-    await process(sub);
+    if (!sub.test) await process(sub);   // тестовая запись для показа кабинета не списывает и не продлевается
   }
 
   /** Отвязать карту: автосписания прекращаются, неоплаченные будущие занятия освобождаются, бронь на паузе */
