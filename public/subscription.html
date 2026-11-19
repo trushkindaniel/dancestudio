@@ -62,6 +62,8 @@
   .cardface b { font-size: 17px; }
   .card-pay-actions { display: flex; flex-wrap: wrap; gap: 10px; }
   .card-pay-note { margin: 14px 0 0; color: var(--muted); font-size: 14px; line-height: 1.5; }
+  .pay-due { border-color: var(--spark); }
+  .pay-due .plan-actions { margin-top: 14px; }
   .bind-widget { min-height: 120px; margin: 4px 0 0; text-align: left; }
   .bind-demo { padding: 16px; border-radius: 14px; border: 1px dashed var(--line); background: var(--bg); color: var(--muted); font-size: 14px; text-align: left; }
   .bind-demo .btn { margin-top: 12px; }
@@ -171,6 +173,17 @@
     ],
   };
 
+  // режим разработки: имитация страницы оплаты ЮKassa (на боевом сайте ссылка ведёт на ЮKassa)
+  var fakepay = q.get('fakepay');
+  if (fakepay) {
+    var res = window.confirm('Режим разработки: оплатить занятие? «Отмена» — отказаться от оплаты') ? 'succeeded' : 'canceled';
+    q.delete('fakepay');
+    fetch('/api/dev/pay/' + encodeURIComponent(fakepay) + '?result=' + res, { method: 'POST' }).then(function () { location.replace(location.pathname + '?' + q.toString()); });
+    return;
+  }
+  // вернулись со страницы оплаты: убираем метку из адреса, кабинет сам узнает итог у ЮKassa
+  if (q.get('paid')) { q.delete('paid'); history.replaceState(null, '', location.pathname + '?' + q.toString()); }
+
   function load() {
     if (demo) return render(JSON.parse(JSON.stringify(DEMO)));
     if (!id || !t) {
@@ -224,6 +237,12 @@
         (active ? '<p class="cab-msg" style="margin:0;font-size:14px">Оплата за каждое занятие списывается с карты автоматически за ' + s.chargeDaysBefore + ' дн. до занятия. Чтобы перенести время, позвоните нам.</p>'
                 : '<p class="cab-msg" style="margin:0;font-size:14px">Автосписаний нет. Чтобы снова закрепить время, оформите постоянную бронь на главной странице или позвоните нам.</p>') +
       '</section>' +
+      (s.payDue ? '<section class="card pay-due"><h2>Оплатите следующее занятие</h2><ul class="rows">' +
+        '<li><span>Занятие</span><b>' + esc(s.payDue.lesson) + '</b></li>' +
+        '<li><span>Сумма</span><b>' + money(s.payDue.amount) + '</b></li>' +
+        '<li><span>Оплатить до</span><b>' + esc(s.payDue.payBefore) + '</b></li></ul>' +
+        '<div class="plan-actions"><button class="btn" type="button" id="payBtn">Оплатить ' + money(s.payDue.amount) + '</button></div>' +
+        '<p class="cab-msg" id="payMsg" style="margin:10px 0 0;font-size:14px">Картой или по СБП на странице ЮKassa, потом вернётесь сюда.</p></section>' : '') +
       cardBlock(s) +
       '<div class="grid2">' +
         '<section class="card"><h2>Информация о брони</h2><ul class="rows">' +
@@ -240,6 +259,18 @@
     if (u) u.onclick = openUnbind;
     var k = document.getElementById('bindBtn');
     if (k) k.onclick = openBind;
+    var pb = document.getElementById('payBtn');
+    if (pb) pb.onclick = payNow;
+  }
+
+  // ---------- оплата ближайшего занятия по ссылке ----------
+  function payNow() {
+    var btn = this, msg = document.getElementById('payMsg');
+    btn.disabled = true; msg.textContent = 'Открываем страницу оплаты…';
+    fetch('/api/sub/' + encodeURIComponent(id) + '/pay?t=' + encodeURIComponent(t), { method: 'POST' })
+      .then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.message || 'Ошибка'); return j; }); })
+      .then(function (j) { if (j.paid) return load(); location.href = j.confirmationUrl; })
+      .catch(function (e) { btn.disabled = false; msg.textContent = e.message || 'Не получилось, попробуйте ещё раз.'; });
   }
 
   function cardBlock(s) {

@@ -7,6 +7,9 @@ const crypto = require('node:crypto');
 const API = 'https://api.yookassa.ru/v3';
 const PAYMENT_ID_RE = /^[0-9a-z-]{20,64}$/i;
 
+// ЮKassa ещё не включила магазину автоплатежи: «403 forbidden … can't make recurring payments»
+const isRecurringForbidden = (e) => /\b403\b/.test(String(e && e.message)) && /recurring/i.test(String(e && e.message));
+
 const money = (rub) => ({ value: Number(rub).toFixed(2), currency: 'RUB' });
 const cut = (s, n) => (s.length > n ? s.slice(0, n - 1) + '…' : s);
 
@@ -47,6 +50,8 @@ function paymentBody(cfg, b) {
   // постоянная бронь: первая оплата сохраняет карту, следующие списываются с неё без участия клиента
   if (b.savePaymentMethod) body.save_payment_method = true;
   if (b.paymentMethodId) { delete body.confirmation; body.payment_method_id = b.paymentMethodId; }
+  // оплата занятия постоянной брони по ссылке: страница ЮKassa (карта или СБП), потом обратно в личный кабинет
+  if (b.redirectUrl) body.confirmation = { type: 'redirect', return_url: b.redirectUrl };
   if (b.sub) body.metadata.sub = b.sub;
   if (b.week !== undefined && b.week !== null) body.metadata.week = String(b.week);
   if (cfg.payment.receipt) {
@@ -87,10 +92,28 @@ function createYooKassa(cfg, deps = {}) {
     return JSON.parse(text);
   }
 
+  // Пока ЮKassa не включила автоплатежи, платёж с сохранением карты она отклоняет (403).
+  // Тогда платёж создаётся без сохранения карты (saveDeferred: true): постоянная бронь работает,
+  // а за следующие занятия клиент платит по ссылке из письма и личного кабинета. Раз в 30 минут пробуем снова.
+  let recurringOffUntil = 0;
+  async function plain(b) {
+    const key = `${b.idempotenceKey || `pay-${b.code}`}-n`;
+    return { ...normalize(await call('POST', '/payments', paymentBody(cfg, { ...b, savePaymentMethod: false }), key)), saveDeferred: true };
+  }
+
   return {
     provider: 'yookassa',
     // Ключ идемпотентности привязан к брони: повтор запроса не создаст второй платёж
-    async createPayment(b) { return normalize(await call('POST', '/payments', paymentBody(cfg, b), b.idempotenceKey || `pay-${b.code}`)); },
+    async createPayment(b) {
+      if (b.savePaymentMethod && Date.now() < recurringOffUntil) return plain(b);
+      try {
+        return normalize(await call('POST', '/payments', paymentBody(cfg, b), b.idempotenceKey || `pay-${b.code}`));
+      } catch (e) {
+        if (!b.savePaymentMethod || !isRecurringForbidden(e)) throw e;
+        recurringOffUntil = Date.now() + 30 * 60000;
+        return plain(b);
+      }
+    },
     async createSbpPayment(b) { return normalize(await call('POST', '/payments', sbpBody(cfg, b), b.idempotenceKey)); },
     async getPayment(id) {
       if (!PAYMENT_ID_RE.test(String(id))) throw new Error('Некорректный id платежа');
@@ -108,13 +131,19 @@ function createFakePayments(cfg) {
   const payments = new Map();
   const refunds = [];
   let autopay = 'succeeded';                         // чем закончится следующее автосписание (для тестов)
-  let noSave = false;                                // карту не удалось сохранить (автоплатежи не включены)
+  let noSave = false;                                // карту не удалось сохранить (способ оплаты без автосписаний)
+  let noRecurring = Boolean(cfg.payment.fakeNoRecurring); // магазину не включены автоплатежи (как ЮKassa сейчас)
   return {
     provider: 'fake',
     async createPayment(b) {
       const id = `fake-${crypto.randomBytes(10).toString('hex')}`;
+      const saveDeferred = Boolean(b.savePaymentMethod && noRecurring);
+      if (saveDeferred) b = { ...b, savePaymentMethod: false };
       const body = paymentBody(cfg, b);
-      const p = { id, status: 'pending', amount: body.amount, metadata: body.metadata, body, confirmation: { type: 'embedded', confirmation_token: id } };
+      const confirmation = body.confirmation && body.confirmation.type === 'redirect'
+        ? { type: 'redirect', confirmation_url: `${b.redirectUrl}${b.redirectUrl.includes('?') ? '&' : '?'}fakepay=${id}` }
+        : { type: 'embedded', confirmation_token: id };
+      const p = { id, status: 'pending', amount: body.amount, metadata: body.metadata, body, confirmation };
       if (b.paymentMethodId) {                       // автосписание с сохранённой карты: ответ сразу
         delete p.confirmation;
         p.status = autopay;
@@ -122,7 +151,7 @@ function createFakePayments(cfg) {
         if (autopay === 'canceled') p.cancellation_details = { reason: 'insufficient_funds' };
       }
       payments.set(id, p);
-      return normalize(p);
+      return saveDeferred ? { ...normalize(p), saveDeferred } : normalize(p);
     },
     async createSbpPayment(b) {
       const id = `fake-${crypto.randomBytes(10).toString('hex')}`;
@@ -146,12 +175,13 @@ function createFakePayments(cfg) {
       const p = payments.get(id);
       if (!p) return p;
       p.status = status;
-      // как ЮKassa: при успешной оплате с save_payment_method карта сохраняется
-      if (status === 'succeeded' && p.body.save_payment_method && !p.payment_method) p.payment_method = { id: `pm-${id}`, saved: !noSave, title: 'Bank card *4444' };
+      // как ЮKassa: в успешном платеже есть способ оплаты; с save_payment_method карта сохраняется
+      if (status === 'succeeded' && !p.payment_method) p.payment_method = { id: `pm-${id}`, saved: Boolean(p.body.save_payment_method) && !noSave, title: 'Bank card *4444' };
       return p;
     },
     _autopay(status) { autopay = status; },
     _noSave(v) { noSave = v; },
+    _noRecurring(v) { noRecurring = v; },
     _get: (id) => payments.get(id),
     _refunds: refunds,
   };
@@ -163,4 +193,4 @@ function createPayments(cfg, deps) {
   return null; // transfer: оплата переводом, подтверждает администратор цветом события
 }
 
-module.exports = { createPayments, createYooKassa, createFakePayments, paymentBody, sbpBody, PAYMENT_ID_RE };
+module.exports = { createPayments, createYooKassa, createFakePayments, paymentBody, sbpBody, isRecurringForbidden, PAYMENT_ID_RE };

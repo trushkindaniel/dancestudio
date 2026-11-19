@@ -199,7 +199,9 @@ const DECLINE = {
  */
 const subTemplates = {
   started(cfg, s) {
-    const rule = `Оплата ${money(s.weekTotal)} за каждое следующее занятие спишется с карты ${s.card} автоматически за ${s.chargeDaysBefore} дн. до занятия. Перед каждым занятием придёт письмо с инструкцией и чек.`;
+    const rule = s.autopay === false
+      ? `За ${s.chargeDaysBefore} дн. до каждого следующего занятия пришлём письмо с суммой ${money(s.weekTotal)} и кнопкой оплаты, оплатить можно и в личном кабинете. После оплаты придёт письмо с инструкцией и чек.`
+      : `Оплата ${money(s.weekTotal)} за каждое следующее занятие спишется с карты ${s.card} автоматически за ${s.chargeDaysBefore} дн. до занятия. Перед каждым занятием придёт письмо с инструкцией и чек.`;
     const subject = `Постоянная бронь оформлена: ${s.schedule}`;
     const text = `Здравствуйте, ${s.name}!\n\nПостоянная бронь оформлена: ${s.schedule}.\nЗа вами закреплено время на ${s.weeks} недель вперёд, дальше бронь продлевается сама.\n${(s.reserved || []).map((l) => '  ' + l).join('\n')}\n\n${rule}\n\nОтменить постоянную бронь можно в любой момент: ${s.url}\nОплаченные занятия останутся за вами.\n\n${cfg.studioName}`;
     const html = layout(cfg, {
@@ -237,6 +239,25 @@ const subTemplates = {
     return { subject, text, html };
   },
 
+  pay_due(cfg, s) {
+    const subject = `Оплатите занятие ${s.weekLabel}`;
+    const msg = `Пора оплатить следующее занятие постоянной брони: ${s.weekLabel}, ${money(s.amount)}. Оплатить картой или по СБП можно в личном кабинете до ${s.payBefore}, иначе время освободится.`;
+    const text = `Здравствуйте, ${s.name}!
+
+${msg}
+Оплатить: ${s.url}
+
+Вопросы: ${cfg.venue.phone}.
+
+${cfg.studioName}`;
+    const html = layout(cfg, {
+      preheader: msg, title: 'Оплатите следующее занятие',
+      body: p(`Здравствуйте, ${esc(s.name)}!`) + table([row('Занятие', esc(s.weekLabel)), row('Сумма', esc(money(s.amount))), row('Оплатить до', esc(s.payBefore))]) +
+        p('Оплатить можно картой или по СБП в личном кабинете. Если оплаты не будет, время освободится.') + button(s.url, 'Оплатить занятие'),
+    });
+    return { subject, text, html };
+  },
+
   paused(cfg, s) {
     const subject = `Постоянная бронь на паузе: ${s.schedule}`;
     const msg = `Оплата за занятие ${s.weekLabel} не прошла, поэтому мы освободили это время и следующие закреплённые недели.`;
@@ -263,7 +284,9 @@ const subTemplates = {
 
   card_bound(cfg, s) {
     const subject = 'Карта привязана к постоянной брони';
-    const msg = `Карта ${s.card} привязана. Оплата ${money(s.weekTotal)} за каждое занятие будет списываться с неё за ${s.chargeDaysBefore} дн. до занятия. Проверочный 1 ₽ мы вернули.`;
+    const msg = s.autopay === false
+      ? `Карта ${s.card} привязана к постоянной брони, проверочный 1 ₽ мы вернули. За ${s.chargeDaysBefore} дн. до каждого занятия пришлём письмо с кнопкой оплаты.`
+      : `Карта ${s.card} привязана. Оплата ${money(s.weekTotal)} за каждое занятие будет списываться с неё за ${s.chargeDaysBefore} дн. до занятия. Проверочный 1 ₽ мы вернули.`;
     const text = `Здравствуйте, ${s.name}!\n\n${msg}\nЛичный кабинет: ${s.url}\n\n${cfg.studioName}`;
     const html = layout(cfg, { preheader: msg, title: 'Карта привязана', body: p(`Здравствуйте, ${esc(s.name)}!`) + p(esc(msg)) + button(s.url, 'Личный кабинет') });
     return { subject, text, html };
@@ -282,7 +305,7 @@ const subTemplates = {
 const ADMIN_TITLE = {
   started: 'оформлена', card_not_saved: 'карта не сохранилась, недели освобождены', charge_failed: 'не прошло списание',
   paused: 'на паузе: не оплачено к сроку, время освобождено', skipped: 'неделя пропущена: время занято', cancelled: 'отменена клиентом',
-  card_unbound: 'клиент отвязал карту, бронь на паузе', card_bound: 'клиент привязал карту',
+  card_unbound: 'клиент отвязал карту, бронь на паузе', card_bound: 'клиент привязал карту', pay_due: 'клиенту отправлена ссылка на оплату занятия',
 };
 function adminSub(cfg, kind, s) {
   const title = `Постоянная бронь ${s.id}: ${ADMIN_TITLE[kind] || kind}`;

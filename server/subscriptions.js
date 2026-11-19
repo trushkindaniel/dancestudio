@@ -13,13 +13,16 @@
  *  5. Клиент может отменить по ссылке из письма: будущие неоплаченные занятия освобождаются, оплаченные остаются.
  *  Сайт поддерживает закреплёнными SUB_WEEKS будущих недель: каждую неделю добавляется следующая.
  *
+ *  Пока ЮKassa не включила магазину автоплатежи, карта не сохраняется (paymentMethod.id = null). Постоянная
+ *  бронь всё равно оформляется и работает, только вместо автосписания за SUB_CHARGE_DAYS дней до занятия
+ *  клиенту приходит письмо об оплате, а в личном кабинете появляется кнопка «Оплатить занятие» (неделя awaiting).
+ *
  * Записи хранятся в data/subscriptions.json (server/store.js), события — в календаре.
  */
 const crypto = require('node:crypto');
 const { AppError } = require('./errors');
 const { validateOrder } = require('./validate');
 const T = require('./time');
-const { isRecurringForbidden, RECURRING_MSG } = require('./booking');
 
 const ID_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const ID_RE = /^S[A-Z2-9]{6}$/;
@@ -41,9 +44,11 @@ function createSubscriptionService({ calendar, cfg, notify, payments, store, boo
   const schedule = (sub) => sub.slots.map((s) => `${EVERY[weekday(s.date)]} ${T.hhmm(s.first)}–${T.hhmm(s.last + 1)}`).join('; ');
   const contact = (sub) => ({ name: sub.name, phone: sub.phone, email: sub.email, purposeLabel: sub.purpose, people: sub.people, note: sub.note || '' });
   const weekOf = (sub, k) => sub.weeks.find((w) => w.k === k);
+  const fmtDate = (ms) => new Date(ms).toLocaleDateString('ru-RU', { timeZone: cfg.tz, day: '2-digit', month: '2-digit', year: 'numeric' });
   const info = (sub, extra = {}) => ({
     id: sub.id, name: sub.name, phone: sub.phone, email: sub.email, schedule: schedule(sub), weekTotal: sub.weekTotal,
-    weeks: S.weeks, chargeDaysBefore: S.chargeDaysBefore, card: sub.paymentMethod ? sub.paymentMethod.title : '', url: manageUrl(sub), ...extra,
+    weeks: S.weeks, chargeDaysBefore: S.chargeDaysBefore, card: sub.paymentMethod ? sub.paymentMethod.title : '', url: manageUrl(sub),
+    autopay: Boolean(sub.paymentMethod && sub.paymentMethod.id), ...extra,
   });
 
   /** Свободно ли время частей брони (по уже загруженным занятым интервалам) */
@@ -64,7 +69,7 @@ function createSubscriptionService({ calendar, cfg, notify, payments, store, boo
   /** Закрепить неделю k событиями 🔁 (под замком) */
   async function reserve(sub, k) {
     const code = await B.uniqueCode();
-    await B.createEvents({
+    if (!sub.test) await B.createEvents({
       code, token: crypto.randomBytes(12).toString('hex'), parts: weekParts(sub, k), c: contact(sub), status: 'reserved',
       extra: { sub: sub.id, week: String(k), subUrl: manageUrl(sub) }, icon: '🔁', consentAt: sub.pdConsentAt,
       tail: [`Постоянная бронь ${sub.id}: ${schedule(sub)}. Оплата спишется с карты клиента за ${S.chargeDaysBefore} дн. до занятия, тогда 🔁 сменится на ✅.`],
@@ -84,7 +89,7 @@ function createSubscriptionService({ calendar, cfg, notify, payments, store, boo
   async function releaseFuture(sub) {
     const t = now().getTime();
     for (const w of sub.weeks) {
-      if (['reserved', 'charging', 'pending'].includes(w.status) && weekStart(sub, w.k) > t) await dropWeek(w);
+      if (['reserved', 'awaiting', 'charging', 'pending'].includes(w.status) && weekStart(sub, w.k) > t) await dropWeek(w);
     }
   }
 
@@ -121,6 +126,7 @@ function createSubscriptionService({ calendar, cfg, notify, payments, store, boo
         autopayConsentAt: at, pdConsentAt: at,
       };
       const o = await B.createOrder(v, { extra: { sub: sub.id, week: '0', subUrl: manageUrl(sub) }, savePaymentMethod: true });
+      sub.linkMode = Boolean(o.saveDeferred);   // ЮKassa ещё не сохраняет карты: следующие занятия — оплата по ссылке
       sub.weeks.push({ k: 0, code: o.code, status: 'pending', paymentId: o.paymentId, attempts: 0, nextTryAt: null });
       try {
         for (let k = 1; k < S.weeks; k++) await reserve(sub, k);
@@ -145,8 +151,9 @@ function createSubscriptionService({ calendar, cfg, notify, payments, store, boo
     const w = weekOf(sub, k);
     if (w) { w.status = 'paid'; w.paymentId = p.id; w.paidAt = now().toISOString(); w.amount = p.amount; }
     if (k === 0 && sub.status === 'pending') {
-      if (p.paymentMethod && p.paymentMethod.saved) {
-        sub.paymentMethod = { id: p.paymentMethod.id, title: p.paymentMethod.title || 'карта' };
+      const saved = Boolean(p.paymentMethod && p.paymentMethod.saved);
+      if (saved || sub.linkMode) {
+        sub.paymentMethod = { id: saved ? p.paymentMethod.id : null, title: (p.paymentMethod && p.paymentMethod.title) || 'карта' };
         sub.status = 'active';
         store.put(sub);
         await notify.subscription('started', info(sub, { reserved: sub.weeks.filter((x) => x.status === 'reserved').map((x) => weekLabel(sub, x.k)) }));
@@ -187,6 +194,10 @@ function createSubscriptionService({ calendar, cfg, notify, payments, store, boo
       return 'paid';
     }
     if (p.status === 'canceled') {
+      if (!sub.paymentMethod || !sub.paymentMethod.id) {   // клиент не оплатил по ссылке — ждём оплату дальше
+        w.status = 'awaiting'; w.paymentId = null; w.payUrl = null;
+        return 'failed';
+      }
       w.status = 'reserved'; w.paymentId = null;
       w.nextTryAt = new Date(now().getTime() + S.retryHours * 3600000).toISOString();
       await notify.subscription('charge_failed', info(sub, { weekLabel: weekLabel(sub, w.k), amount: weekParts(sub, w.k).reduce((t, x) => t + x.total, 0), reason: p.cancelReason, nextTryAt: w.nextTryAt }));
@@ -199,6 +210,13 @@ function createSubscriptionService({ calendar, cfg, notify, payments, store, boo
     const evs = await calendar.findAllByCode(w.code);
     if (!evs.length) { w.status = 'released'; return 'released'; }
     const order = B.describe(evs);
+    if (!sub.paymentMethod.id) {
+      // карта не сохранена в ЮKassa: письмо с кнопкой оплаты, оплатить можно и в личном кабинете
+      w.status = 'awaiting'; w.notifiedAt = now().toISOString();
+      store.put(sub);
+      await notify.subscription('pay_due', info(sub, { weekLabel: weekLabel(sub, w.k), amount: order.total, payBefore: fmtDate(weekStart(sub, w.k) - S.releaseHoursBefore * 3600000) }));
+      return 'awaiting';
+    }
     w.attempts = (w.attempts || 0) + 1;
     w.lastTryAt = now().toISOString();
     let p;
@@ -223,7 +241,7 @@ function createSubscriptionService({ calendar, cfg, notify, payments, store, boo
   async function process(sub) {
     const t = now().getTime();
     for (const w of [...sub.weeks].sort((a, b) => a.k - b.k)) {
-      if (!['reserved', 'charging'].includes(w.status)) continue;
+      if (!['reserved', 'awaiting', 'charging'].includes(w.status)) continue;
       const start = weekStart(sub, w.k);
       if (start <= t) { w.status = 'released'; continue; }
       if (w.status === 'charging' && w.paymentId) {
@@ -246,7 +264,7 @@ function createSubscriptionService({ calendar, cfg, notify, payments, store, boo
       }
     }
     // держим закреплёнными S.weeks будущих недель
-    const alive = sub.weeks.filter((w) => ['reserved', 'charging', 'paid', 'pending'].includes(w.status) && weekStart(sub, w.k) > t).length;
+    const alive = sub.weeks.filter((w) => ['reserved', 'awaiting', 'charging', 'paid', 'pending'].includes(w.status) && weekStart(sub, w.k) > t).length;
     let need = S.weeks - alive;
     let k = Math.max(...sub.weeks.map((w) => w.k));
     for (let guard = 0; need > 0 && guard < S.weeks * 2; guard++) {
@@ -272,7 +290,7 @@ function createSubscriptionService({ calendar, cfg, notify, payments, store, boo
     if (!enabled()) return result;
     for (const sub of store.all()) {
       if (sub.bindPaymentId) await B.withLock(() => finishBind(sub)).catch((e) => log.error(`[sub] ${sub.id}: привязка карты:`, e.message));
-      if (sub.status !== 'active') continue;
+      if (sub.status !== 'active' || sub.test) continue;
       try {
         await B.withLock(() => process(sub));
         result.processed++;
@@ -322,6 +340,7 @@ function createSubscriptionService({ calendar, cfg, notify, payments, store, boo
       const sub = owned(id, token);
       if (!sub) throw new AppError(404, 'not_found', 'Постоянная бронь не найдена');
       if (sub.status === 'cancelled') throw new AppError(409, 'cancelled', 'Постоянная бронь отменена, оформите новую');
+      if (sub.test && !payments) throw new AppError(400, 'subs_off', 'Привязка карты недоступна');
       const attempt = (sub.bindAttempts || 0) + 1;
       const p = await payments.createPayment({
         code: `bind-${sub.id}`, total: 1, hoursCount: 0, email: sub.email, phone: sub.phone,
@@ -329,12 +348,13 @@ function createSubscriptionService({ calendar, cfg, notify, payments, store, boo
         receiptText: `Проверка карты для автосписаний (постоянная бронь ${sub.id})`,
         savePaymentMethod: true, sub: sub.id, idempotenceKey: `bind-${sub.id}-${attempt}`,
       }).catch((e) => {
-        if (isRecurringForbidden(e)) throw new AppError(503, 'recurring_unavailable', 'Привязка карты подключается: платёжный сервис ещё не открыл автосписания. Попробуйте позже или позвоните: 8 913 658-19-00.');
+        log.error(`[sub] ${sub.id}: привязка карты не создана:`, e.message);
         throw new AppError(502, 'payment_unavailable', 'Платёжный сервис сейчас не отвечает, попробуйте позже');
       });
       if (!p.confirmationToken) throw new AppError(502, 'payment_unavailable', 'ЮKassa не ответила, попробуйте ещё раз');
       sub.bindAttempts = attempt;
       sub.bindPaymentId = p.id;
+      sub.bindDeferred = Boolean(p.saveDeferred);
       store.put(sub);
       return { provider: payments.provider, confirmationToken: p.confirmationToken };
     });
@@ -348,11 +368,11 @@ function createSubscriptionService({ calendar, cfg, notify, payments, store, boo
     sub.bindPaymentId = null;
     if (p.status === 'succeeded') {
       await payments.refund(p.id, p.amount, 'Возврат проверочного платежа за привязку карты').catch((e) => log.error(`[sub] ${sub.id}: возврат 1 ₽:`, e.message));
-      if (!p.paymentMethod || !p.paymentMethod.saved) {
+      if (!p.paymentMethod || (!p.paymentMethod.saved && !sub.bindDeferred)) {
         store.put(sub);
         return { status: 'failed', message: 'Этот способ оплаты не поддерживает автосписания, привяжите банковскую карту' };
       }
-      sub.paymentMethod = { id: p.paymentMethod.id, title: p.paymentMethod.title || 'карта' };
+      sub.paymentMethod = { id: p.paymentMethod.saved ? p.paymentMethod.id : null, title: p.paymentMethod.title || 'карта' };
       if (sub.status === 'paused') await reactivate(sub);
       store.put(sub);
       await notify.subscription('card_bound', info(sub));
@@ -378,20 +398,29 @@ function createSubscriptionService({ calendar, cfg, notify, payments, store, boo
     return sub;
   }
 
-  const fmtDate = (ms) => new Date(ms).toLocaleDateString('ru-RU', { timeZone: cfg.tz, day: '2-digit', month: '2-digit', year: 'numeric' });
+  /** Узнать у ЮKassa итог начатых оплат (клиент вернулся в кабинет со страницы оплаты) — под замком */
+  async function refresh(sub) {
+    for (const w of sub.weeks) {
+      if (w.status !== 'charging' || !w.paymentId) continue;
+      try { await settle(sub, w, await payments.getPayment(w.paymentId)); } catch (e) { log.error(`[sub] ${sub.id}: платёж ${w.paymentId}:`, e.message); }
+    }
+    store.put(sub);
+  }
 
-  function view(id, token) {
+  async function view(id, token) {
     const sub = owned(id, token);
     if (!sub) throw new AppError(404, 'not_found', 'Постоянная бронь не найдена');
+    if (payments && sub.weeks.some((w) => w.status === 'charging' && w.paymentId)) await B.withLock(() => refresh(sub));
     const t = now().getTime();
-    const STATUS = { pending: 'ждёт первой оплаты', reserved: 'закреплено', charging: 'списываем оплату', paid: 'оплачено', released: 'освобождено', skipped: 'время было занято' };
+    const STATUS = { pending: 'ждёт первой оплаты', reserved: 'закреплено', awaiting: 'ждёт оплаты', charging: 'оплачивается', paid: 'оплачено', released: 'освобождено', skipped: 'время было занято' };
     const weeks = [...sub.weeks].sort((a, b) => a.k - b.k);
     const amountOf = (w) => w.amount || weekParts(sub, w.k).reduce((s, x) => s + x.total, 0);
     // следующее списание: ближайшая закреплённая неделя
-    const next = weeks.find((w) => ['reserved', 'charging'].includes(w.status) && weekStart(sub, w.k) > t);
+    const next = weeks.find((w) => ['reserved', 'awaiting', 'charging'].includes(w.status) && weekStart(sub, w.k) > t);
+    const due = sub.status === 'active' && weeks.find((w) => ['awaiting', 'charging'].includes(w.status) && weekStart(sub, w.k) > t && !(sub.paymentMethod && sub.paymentMethod.id));
     const nextChargeAt = next ? Math.max(t, weekStart(sub, next.k) - S.chargeDaysBefore * DAY) : null;
     // до какого числа время закреплено или оплачено
-    const held = weeks.filter((w) => ['reserved', 'charging', 'paid', 'pending'].includes(w.status) && weekStart(sub, w.k) > t);
+    const held = weeks.filter((w) => ['reserved', 'awaiting', 'charging', 'paid', 'pending'].includes(w.status) && weekStart(sub, w.k) > t);
     const paidAhead = weeks.filter((w) => w.status === 'paid' && weekStart(sub, w.k) > t);
     const lastHeld = held.length ? weekStart(sub, held[held.length - 1].k) : null;
     const lastPaid = paidAhead.length ? weekStart(sub, paidAhead[paidAhead.length - 1].k) : null;
@@ -401,6 +430,7 @@ function createSubscriptionService({ calendar, cfg, notify, payments, store, boo
       createdAt: fmtDate(Date.parse(sub.createdAt)),
       nextChargeAt: sub.status === 'active' && nextChargeAt ? fmtDate(nextChargeAt) : null,
       nextChargeAmount: next ? amountOf(next) : null,
+      payDue: due ? { lesson: weekLabel(sub, due.k), amount: amountOf(due), payBefore: fmtDate(weekStart(sub, due.k) - S.releaseHoursBefore * 3600000) } : null,
       heldUntil: lastHeld ? fmtDate(lastHeld) : null,       // время закреплено до (активная бронь продлевается сама)
       paidUntil: lastPaid ? fmtDate(lastPaid) : null,       // оплаченные занятия останутся до
       payments: weeks.filter((w) => w.status === 'paid').reverse()
@@ -408,6 +438,42 @@ function createSubscriptionService({ calendar, cfg, notify, payments, store, boo
       weeks: weeks.filter((w) => weekStart(sub, w.k) > t - 7 * DAY)
         .map((w) => ({ label: weekLabel(sub, w.k), status: w.status, statusLabel: STATUS[w.status] || w.status, past: weekStart(sub, w.k) <= t })),
     };
+  }
+
+  /** Оплатить ближайшее занятие по ссылке (страница ЮKassa: карта или СБП), потом возврат в кабинет */
+  async function payNow(id, token) {
+    if (!enabled()) throw new AppError(400, 'subs_off', 'Оплата сейчас недоступна');
+    return B.withLock(async () => {
+      const sub = owned(id, token);
+      if (!sub) throw new AppError(404, 'not_found', 'Постоянная бронь не найдена');
+      if (sub.status !== 'active') throw new AppError(409, 'not_active', 'Постоянная бронь не активна');
+      const t = now().getTime();
+      const w = [...sub.weeks].sort((a, b) => a.k - b.k).find((x) => ['awaiting', 'reserved', 'charging'].includes(x.status) && weekStart(sub, x.k) > t);
+      if (!w) throw new AppError(409, 'nothing_due', 'Сейчас оплачивать нечего');
+      if (w.status === 'charging' && w.paymentId) {
+        const r = await settle(sub, w, await payments.getPayment(w.paymentId));
+        store.put(sub);
+        if (r === 'paid' || r === 'refunded') return { paid: true };
+        if (r === 'waiting' && w.payUrl) return { confirmationUrl: w.payUrl };
+      }
+      const evs = sub.test ? [] : await calendar.findAllByCode(w.code);
+      if (!evs.length) throw new AppError(409, 'nothing_due', 'Это занятие уже освобождено');
+      const order = B.describe(evs);
+      w.attempts = (w.attempts || 0) + 1;
+      const p = await payments.createPayment({
+        code: w.code, total: order.total, date: order.date, hours: `${order.startHour}-${order.endHour - 1}`, hoursCount: order.hoursTotal,
+        email: sub.email, phone: sub.phone, dateLabel: order.dateLabel, timeLabel: order.timeLabel,
+        redirectUrl: `${manageUrl(sub)}&paid=1`, sub: sub.id, week: w.k, idempotenceKey: `subpay-${sub.id}-${w.k}-${w.attempts}`,
+      }).catch((e) => {
+        log.error(`[sub] ${sub.id}: оплата недели ${w.k} не создана:`, e.message);
+        throw new AppError(502, 'payment_unavailable', 'Платёжный сервис сейчас не отвечает, попробуйте через пару минут');
+      });
+      if (!p.confirmationUrl) throw new AppError(502, 'payment_unavailable', 'ЮKassa не ответила, попробуйте ещё раз');
+      w.status = 'charging'; w.paymentId = p.id; w.payUrl = p.confirmationUrl;
+      for (const ev of evs) await calendar.patchEvent(ev.id, { private: { ...ev.private, paymentId: p.id } });
+      store.put(sub);
+      return { confirmationUrl: p.confirmationUrl };
+    });
   }
 
   async function cancel(id, token) {
@@ -424,7 +490,7 @@ function createSubscriptionService({ calendar, cfg, notify, payments, store, boo
     });
   }
 
-  return { book, tick, view, cancel, unbindCard, startBind, bindStatus, hooks: { onPaid, onDropped }, _process: process };
+  return { book, tick, view, cancel, unbindCard, startBind, bindStatus, payNow, hooks: { onPaid, onDropped }, _process: process };
 }
 
 module.exports = { createSubscriptionService };

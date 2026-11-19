@@ -94,6 +94,7 @@ function buildConfig(env = process.env) {
       secretKey: env.YOOKASSA_SECRET_KEY || '',
       receipt: env.YOOKASSA_RECEIPT === '1',
       vatCode: num(env, 'YOOKASSA_VAT_CODE', 1),
+      fakeNoRecurring: env.FAKE_NO_RECURRING === '1',   // разработка: имитация «автоплатежи не включены»
     },
 
     requisites: {

@@ -669,3 +669,6 @@ main, .foot { overflow-x: clip; }
 .pay-x { position: sticky; top: 0; float: right; z-index: 2; display: grid; place-items: center; width: 44px; height: 44px; margin: -10px -12px 0 12px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface); color: var(--muted); cursor: pointer; transition: color .2s, border-color .2s, background-color .2s; }
 .pay-x:hover { color: var(--text); border-color: var(--muted); background: var(--surface-2); }
 .pay-x:focus-visible { outline: 3px solid rgba(227, 175, 186, .6); outline-offset: 2px; }
+
+/* ссылка в личный кабинет после оплаты постоянной брони */
+#payMail .btn { display: flex; width: fit-content; margin-top: 12px; }

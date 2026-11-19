@@ -161,7 +161,7 @@ test('отмена по ссылке: будущие неоплаченные н
   e.clock.now = new Date(at('2026-11-15', 12).getTime() + 60000);
   await e.subs.tick();                                                // неделя 1 оплачена
   await assert.rejects(e.subs.cancel(sub.id, '0'.repeat(24)), (x) => x.status === 404);
-  const v = e.subs.view(sub.id, sub.token);
+  const v = await e.subs.view(sub.id, sub.token);
   assert.equal(v.status, 'active');
   assert.ok(v.weeks.some((w) => w.status === 'paid'));
   await e.subs.cancel(sub.id, sub.token);
@@ -220,7 +220,7 @@ test('автосписание «в обработке», потом уведо�
 test('личный кабинет: дата оформления, следующее списание, карта, история платежей', async () => {
   const e = env();
   const { sub } = await startActive(e);
-  let v = e.subs.view(sub.id, sub.token);
+  let v = await e.subs.view(sub.id, sub.token);
   assert.equal(v.createdAt, '09.11.2026');
   assert.equal(v.nextChargeAt, '15.11.2026');        // за 3 дня до занятия 18.11
   assert.equal(v.nextChargeAmount, 800);
@@ -230,12 +230,12 @@ test('личный кабинет: дата оформления, следующ
   assert.match(v.payments[0].lesson, /11 ноября/);
   e.clock.now = new Date(at('2026-11-15', 12).getTime() + 60000);
   await e.subs.tick();
-  v = e.subs.view(sub.id, sub.token);
+  v = await e.subs.view(sub.id, sub.token);
   assert.equal(v.payments.length, 2);
   assert.equal(v.payments[0].date, '15.11.2026');     // свежие сверху
   assert.equal(v.paidUntil, '18.11.2026');
   await e.subs.cancel(sub.id, sub.token);
-  v = e.subs.view(sub.id, sub.token);
+  v = await e.subs.view(sub.id, sub.token);
   assert.equal(v.status, 'cancelled');
   assert.equal(v.nextChargeAt, null);
   assert.equal(v.paidUntil, '18.11.2026');
@@ -296,17 +296,127 @@ test('карта: привязка не прошла — карта прежня
   assert.equal(sub.status, 'active');
 });
 
-test('ЮKassa ещё не включила автоплатежи: понятное сообщение, ничего не закреплено, карту не привязать', async () => {
+test('ЮKassa ещё не включила автоплатежи: постоянная бронь оформляется, карта видна в кабинете', async () => {
   const e = env();
-  const orig = e.payments.createPayment;
-  e.payments.createPayment = async (b) => {
-    if (b.savePaymentMethod) throw new Error('ЮKassa POST /payments: 403 {"type":"error","code":"forbidden","description":"This store can\'t make recurring payments. Contact the YooMoney manager to learn more"}');
-    return orig(b);
+  e.payments._noRecurring(true);
+  const { r, sub } = await startActive(e);
+  assert.equal(r.subscription.weeks, 8);
+  assert.equal(sub.linkMode, true);
+  const first = e.payments._get(sub.weeks.find((w) => w.k === 0).paymentId);
+  assert.equal(first.body.save_payment_method, undefined);          // ЮKassa отклонила бы такой платёж
+  assert.equal(sub.status, 'active');
+  assert.equal(sub.paymentMethod.id, null);
+  assert.equal(sub.paymentMethod.title, 'Bank card *4444');
+  const started = e.sent.find((x) => x[0] === 'sub:started')[1];
+  assert.equal(started.autopay, false);
+  const v = await e.subs.view(sub.id, sub.token);
+  assert.equal(v.card, 'Bank card *4444');
+  assert.equal(v.payDue, null);
+  assert.ok(v.nextChargeAt);
+  // время закреплено на 8 недель
+  assert.ok((await e.booking.getBusy('2026-12-30', '2026-12-30'))['2026-12-30'].includes(12));
+});
+
+test('без автоплатежей: за 3 дня до занятия письмо об оплате, оплата в кабинете по ссылке → ✅', async () => {
+  const e = env();
+  e.payments._noRecurring(true);
+  const { sub } = await startActive(e);
+  e.clock.now = new Date(at('2026-11-15', 12).getTime() + 60000);
+  e.sent.length = 0;
+  await e.subs.tick();
+  const w1 = () => sub.weeks.find((w) => w.k === 1);
+  assert.equal(w1().status, 'awaiting');
+  assert.deepEqual(kinds(e.sent), ['sub:pay_due']);
+  assert.equal(e.sent[0][1].amount, sub.weekTotal);
+  assert.ok(e.sent[0][1].url.includes(sub.token));
+  await e.subs.tick();
+  assert.equal(e.sent.length, 1);                                    // письмо одно, не каждую минуту
+  let v = await e.subs.view(sub.id, sub.token);
+  assert.match(v.payDue.lesson, /18 ноября/);
+  assert.equal(v.payDue.amount, sub.weekTotal);
+  // клиент нажал «Оплатить»: страница ЮKassa, возврат в кабинет
+  const pay = await e.subs.payNow(sub.id, sub.token);
+  assert.ok(pay.confirmationUrl);
+  const p = e.payments._get(w1().paymentId);
+  assert.equal(p.body.confirmation.type, 'redirect');
+  assert.ok(p.body.confirmation.return_url.startsWith(`https://site.test/subscription?id=${sub.id}&t=${sub.token}`));
+  assert.equal(p.body.metadata.sub, sub.id);
+  // повторное нажатие не создаёт второй платёж
+  assert.equal((await e.subs.payNow(sub.id, sub.token)).confirmationUrl, pay.confirmationUrl);
+  e.payments._set(w1().paymentId, 'succeeded');
+  v = await e.subs.view(sub.id, sub.token);                          // кабинет узнаёт итог у ЮKassa
+  assert.equal(w1().status, 'paid');
+  assert.equal(v.payDue, null);
+  assert.equal(v.payments.length, 2);
+  const evs = await e.calendar.findAllByCode(w1().code);
+  assert.match(evs[0].summary, /^✅/);
+});
+
+test('без автоплатежей: не оплатил по ссылке — снова ждём оплату; за сутки до занятия пауза', async () => {
+  const e = env();
+  e.payments._noRecurring(true);
+  const { sub } = await startActive(e);
+  e.clock.now = new Date(at('2026-11-15', 12).getTime() + 60000);
+  await e.subs.tick();
+  await e.subs.payNow(sub.id, sub.token);
+  const w1 = () => sub.weeks.find((w) => w.k === 1);
+  e.payments._set(w1().paymentId, 'canceled');
+  e.sent.length = 0;
+  await e.subs.view(sub.id, sub.token);
+  assert.equal(w1().status, 'awaiting');
+  assert.deepEqual(e.sent, []);                                      // «не удалось списать» тут не к месту
+  e.clock.now = new Date(at('2026-11-17', 12).getTime() + 60000);    // меньше суток до занятия
+  await e.subs.tick();
+  assert.equal(sub.status, 'paused');
+  assert.equal(w1().status, 'released');
+  assert.ok(kinds(e.sent).includes('sub:paused'));
+});
+
+test('без автоплатежей: отвязать и привязать карту в кабинете (1 ₽ без сохранения карты, вернули)', async () => {
+  const e = env();
+  e.payments._noRecurring(true);
+  const { sub } = await startActive(e);
+  await e.subs.unbindCard(sub.id, sub.token);
+  assert.equal(sub.paymentMethod, null);
+  assert.equal(sub.status, 'paused');
+  assert.equal((await e.subs.view(sub.id, sub.token)).card, '');
+  const r = await e.subs.startBind(sub.id, sub.token);
+  assert.ok(r.confirmationToken);
+  const p = e.payments._get(sub.bindPaymentId);
+  assert.equal(p.amount.value, '1.00');
+  assert.equal(p.body.save_payment_method, undefined);
+  e.payments._set(sub.bindPaymentId, 'succeeded');
+  const done = await e.subs.bindStatus(sub.id, sub.token);
+  assert.equal(done.status, 'bound');
+  assert.equal(done.card, 'Bank card *4444');
+  assert.equal(sub.status, 'active');
+  assert.equal(e.payments._refunds.length, 1);
+  assert.equal(e.sent.find((x) => x[0] === 'sub:card_bound')[1].autopay, false);
+  assert.ok((await e.booking.getBusy('2026-11-18', '2026-11-18'))['2026-11-18'].includes(12));
+});
+
+test('ЮKassa 403 «can\'t make recurring payments» → платёж без сохранения карты, saveDeferred', async () => {
+  const { createYooKassa } = require('../server/payments');
+  const cfg = buildConfig({ PAYMENT_PROVIDER: 'yookassa', YOOKASSA_SHOP_ID: '1', YOOKASSA_SECRET_KEY: 'k', CALENDAR_DRIVER: 'memory' });
+  const calls = [];
+  const fetch = async (url, o) => {
+    const body = JSON.parse(o.body);
+    calls.push({ body, key: o.headers['Idempotence-Key'] });
+    if (body.save_payment_method) return { ok: false, status: 403, text: async () => '{"type":"error","code":"forbidden","description":"This store can\'t make recurring payments"}' };
+    return { ok: true, status: 200, text: async () => JSON.stringify({ id: '2f0e0d2a-000f-5000-8000-1a2b3c4d5e6f', status: 'pending', amount: body.amount, confirmation: { type: 'embedded', confirmation_token: 'ct-1' } }) };
   };
-  const before = e.calendar._size();
-  await assert.rejects(e.booking.book(form()), (x) => x.status === 503 && x.code === 'recurring_unavailable' && /разовую бронь/.test(x.message));
-  assert.equal(e.calendar._size(), before);
-  // разовая бронь при этом работает
-  const one = await e.booking.book(form({ recurring: false, autopayConsent: false }));
-  assert.ok(one.code);
+  const yk = createYooKassa(cfg, { fetch });
+  const b = { code: 'ABCD', total: 1000, hoursCount: 1, dateLabel: 'среда', timeLabel: '12:00–13:00', savePaymentMethod: true, idempotenceKey: 'pay-ABCD-1' };
+  const p = await yk.createPayment(b);
+  assert.equal(p.saveDeferred, true);
+  assert.equal(p.confirmationToken, 'ct-1');
+  assert.equal(calls.length, 2);
+  assert.equal(calls[1].body.save_payment_method, undefined);
+  assert.equal(calls[1].key, 'pay-ABCD-1-n');
+  // следующие полчаса сразу без сохранения карты, лишнего запроса нет
+  await yk.createPayment({ ...b, idempotenceKey: 'pay-ABCD-2' });
+  assert.equal(calls.length, 3);
+  // обычный платёж не трогаем
+  const plain = await yk.createPayment({ ...b, savePaymentMethod: false, idempotenceKey: 'pay-X' });
+  assert.equal(plain.saveDeferred, undefined);
 });
