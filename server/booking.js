@@ -12,6 +12,9 @@ const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 // редакция текста согласия на обработку ПДн (public/consent.html); менять вместе с текстом
 const CONSENT_VERSION = '2026-11-18';
 const CODE_RE = /^[A-Z2-9]{4}$/;
+// ЮKassa ещё не включила магазину автоплатежи: «403 forbidden … can't make recurring payments»
+const isRecurringForbidden = (e) => /\b403\b/.test(String(e && e.message)) && /recurring/i.test(String(e && e.message));
+const RECURRING_MSG = 'Постоянная бронь подключается: платёжный сервис ещё не открыл автосписания. Сейчас можно оформить разовую бронь, а закрепить время на каждую неделю поможем по телефону 8 913 658-19-00.';
 const TOKEN_RE = /^[0-9a-f]{24}$/;
 
 const dateFmt = new Intl.DateTimeFormat('ru-RU', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' });
@@ -208,6 +211,7 @@ function createBookingService({ calendar, cfg, notify, payments = null, now = ()
       } catch (e) {
         log.error(`[pay] бронь ${code}: не удалось создать платёж:`, e.message);
         for (const id of created) await calendar.deleteEvent(id).catch(() => {});
+        if (opts.savePaymentMethod && isRecurringForbidden(e)) throw new AppError(503, 'recurring_unavailable', RECURRING_MSG);
         throw new AppError(502, 'payment_unavailable', 'Платёжный сервис сейчас не отвечает. Попробуйте ещё раз через пару минут.');
       }
     }
@@ -447,4 +451,4 @@ function createBookingService({ calendar, cfg, notify, payments = null, now = ()
   };
 }
 
-module.exports = { createBookingService };
+module.exports = { createBookingService, isRecurringForbidden, RECURRING_MSG };

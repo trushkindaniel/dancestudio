@@ -19,6 +19,7 @@ const crypto = require('node:crypto');
 const { AppError } = require('./errors');
 const { validateOrder } = require('./validate');
 const T = require('./time');
+const { isRecurringForbidden, RECURRING_MSG } = require('./booking');
 
 const ID_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const ID_RE = /^S[A-Z2-9]{6}$/;
@@ -327,6 +328,9 @@ function createSubscriptionService({ calendar, cfg, notify, payments, store, boo
         description: `Проверка карты для постоянной брони ${sub.id}, 1 ₽ вернём сразу`,
         receiptText: `Проверка карты для автосписаний (постоянная бронь ${sub.id})`,
         savePaymentMethod: true, sub: sub.id, idempotenceKey: `bind-${sub.id}-${attempt}`,
+      }).catch((e) => {
+        if (isRecurringForbidden(e)) throw new AppError(503, 'recurring_unavailable', 'Привязка карты подключается: платёжный сервис ещё не открыл автосписания. Попробуйте позже или позвоните: 8 913 658-19-00.');
+        throw new AppError(502, 'payment_unavailable', 'Платёжный сервис сейчас не отвечает, попробуйте позже');
       });
       if (!p.confirmationToken) throw new AppError(502, 'payment_unavailable', 'ЮKassa не ответила, попробуйте ещё раз');
       sub.bindAttempts = attempt;

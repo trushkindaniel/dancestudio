@@ -173,6 +173,14 @@
 
   function load() {
     if (demo) return render(JSON.parse(JSON.stringify(DEMO)));
+    if (!id || !t) {
+      cab.innerHTML = '<div class="cab-user"><div class="cab-ava" aria-hidden="true">55</div><div><p class="cab-kicker">Личный кабинет</p><h1 class="cab-name">Постоянная бронь</h1></div></div>' +
+        '<section class="card"><h2>Как войти</h2>' +
+        '<p>Личный кабинет открывается по персональной ссылке из письма, которое приходит после оплаты первого занятия постоянной брони. В кабинете видно расписание, дату следующего списания и историю платежей, там же можно привязать или отвязать карту и отменить постоянную бронь.</p>' +
+        '<p>Не можете найти письмо? Позвоните: <a href="tel:+79136581900">8 913 658-19-00</a>, пришлём ссылку ещё раз.</p>' +
+        '<div class="plan-actions" style="margin-top:16px"><a class="btn" href="/#booking">Оформить постоянную бронь</a><a class="btn btn-ghost" href="/subscription?demo=1">Посмотреть пример кабинета</a></div></section>';
+      return;
+    }
     fetch('/api/sub/' + encodeURIComponent(id) + '?t=' + encodeURIComponent(t)).then(function (r) {
       return r.json().then(function (j) { if (!r.ok) throw new Error(j.message || 'Ошибка'); return j; });
     }).then(render).catch(function (e) {

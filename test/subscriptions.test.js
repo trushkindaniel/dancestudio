@@ -295,3 +295,18 @@ test('карта: привязка не прошла — карта прежня
   assert.equal(sub.paymentMethod.id, before);
   assert.equal(sub.status, 'active');
 });
+
+test('ЮKassa ещё не включила автоплатежи: понятное сообщение, ничего не закреплено, карту не привязать', async () => {
+  const e = env();
+  const orig = e.payments.createPayment;
+  e.payments.createPayment = async (b) => {
+    if (b.savePaymentMethod) throw new Error('ЮKassa POST /payments: 403 {"type":"error","code":"forbidden","description":"This store can\'t make recurring payments. Contact the YooMoney manager to learn more"}');
+    return orig(b);
+  };
+  const before = e.calendar._size();
+  await assert.rejects(e.booking.book(form()), (x) => x.status === 503 && x.code === 'recurring_unavailable' && /разовую бронь/.test(x.message));
+  assert.equal(e.calendar._size(), before);
+  // разовая бронь при этом работает
+  const one = await e.booking.book(form({ recurring: false, autopayConsent: false }));
+  assert.ok(one.code);
+});
