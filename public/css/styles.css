@@ -652,3 +652,9 @@ main, .foot { overflow-x: clip; }
 .pay-or { margin: 10px 0 0; text-align: center; color: var(--muted); font-size: 13px; line-height: 1.5; }
 
 .section-lead a { color: var(--violet); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; white-space: nowrap; }
+
+/* крестик закрытия окна оплаты: прилипает к верху, пока окно прокручивается */
+.pay { position: relative; }
+.pay-x { position: sticky; top: 0; float: right; z-index: 2; display: grid; place-items: center; width: 44px; height: 44px; margin: -10px -12px 0 12px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface); color: var(--muted); cursor: pointer; transition: color .2s, border-color .2s, background-color .2s; }
+.pay-x:hover { color: var(--text); border-color: var(--muted); background: var(--surface-2); }
+.pay-x:focus-visible { outline: 3px solid rgba(227, 175, 186, .6); outline-offset: 2px; }

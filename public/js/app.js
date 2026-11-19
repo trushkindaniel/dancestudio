@@ -388,7 +388,7 @@
     $('reqRecipient').textContent = r.requisites.recipient;
     $('reqAccount').textContent = r.requisites.account;
     $('reqBank').textContent = r.requisites.bank;
-    $('payMail').textContent = 'Мы пришлём письмо на ' + email + ', когда администратор подтвердит поступление.';
+    $('payMail').textContent = email ? 'Мы пришлём письмо на ' + email + ', когда администратор подтвердит поступление.' : 'Когда администратор подтвердит поступление, бронь станет оплаченной. Вопросы: 8 913 658-19-00.';
     tick(); timerId = setInterval(tick, 1000);
     dlg.showModal();
   }
@@ -428,12 +428,12 @@
   };
 
   function openWidget(r, email) {
-    current = { code: r.code, token: r.token, deadline: new Date(r.deadline).getTime(), online: true, sub: r.subscription || null };
+    current = { code: r.code, token: r.token, deadline: new Date(r.deadline).getTime(), online: true, sub: r.subscription || null, email: email };
     stopTimer(); destroyWidget(); payMode('widget'); fillHead(r);
     $('paySbp').hidden = Boolean(r.subscription);   // постоянную бронь оплачивают картой
     chip('Ожидает оплаты');
     $('payStatus').textContent = 'Оплатите картой или через СБП. Время на оплату: ' + holdLabel(CONFIG.holdMinutes) + ', потом слот освободится.';
-    $('payMail').textContent = 'Подтверждение придёт на ' + email + '.';
+    $('payMail').textContent = email ? 'Подтверждение и чек придут на ' + email + '.' : 'Чек придёт СМС на телефон, итог оплаты появится в этом окне.';
     tick(); timerId = setInterval(tick, 1000);
     dlg.showModal();
 
@@ -515,14 +515,14 @@
   function pollStatus(code, token, tries) {
     api('/api/book/' + code + '?token=' + token).then(function (r) {
       if (r.status === 'paid') {
-        var sub = current && current.sub;
+        var sub = current && current.sub, mail = current && current.email;
         current = null;
         chip('Оплачено');
         $('payTitle').textContent = sub ? 'Постоянная бронь оформлена' : 'Бронь ' + code + ' подтверждена';
         $('payStatus').textContent = sub
           ? 'Первое занятие оплачено. Дальше оплата спишется сама за ' + sub.chargeDaysBefore + ' дн. до каждого занятия: ' + sub.schedule + '.'
           : 'Оплата прошла. Ждём вас в зале.';
-        $('payMail').textContent = sub ? 'Письмо со ссылкой для управления и отмены ушло на вашу почту.' : 'Подтверждение ушло на почту, которую вы указали.';
+        $('payMail').textContent = sub ? 'Письмо со ссылкой для управления и отмены ушло на вашу почту.' : (mail ? 'Подтверждение с адресом и инструкцией ушло на ' + mail + '.' : 'Ключ возьмите за несколько минут до начала в офисе ITB, 3 этаж, офис 307. Вопросы: 8 913 658-19-00.');
         loadWeek();
       } else if (r.status === 'pending') {
         if (tries < 20) return setTimeout(function () { pollStatus(code, token, tries + 1); }, 3000);
@@ -897,6 +897,14 @@
     setupPhoneMask();
     $('bookForm').addEventListener('submit', onSubmit);
     $('payClose').addEventListener('click', function () { dlg.close(); });
+    // крестик: пока идёт оплата, закрыть окно — значит отказаться от брони (слот освобождается); иначе просто закрыть
+    $('payX').addEventListener('click', function () {
+      if (current && current.online && !$('payWidget').hidden) {
+        if (confirm('Закрыть оплату? Бронь будет снята, а время освободится.')) onCancel();
+        return;
+      }
+      dlg.close();
+    });
     var paying = function () { return current && current.online && !$('payWidget').hidden; };
     dlg.addEventListener('cancel', function (e) { if (paying()) e.preventDefault(); });
     $('payCancel').addEventListener('click', onCancel);
