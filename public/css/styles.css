@@ -650,3 +650,5 @@ main, .foot { overflow-x: clip; }
 /* оплата: СБП первой кнопкой над формой ЮKassa */
 .pay-sbp { margin: 4px 0 14px; }
 .pay-or { margin: 10px 0 0; text-align: center; color: var(--muted); font-size: 13px; line-height: 1.5; }
+
+.section-lead a { color: var(--violet); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; white-space: nowrap; }
