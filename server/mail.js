@@ -165,7 +165,7 @@ const templates = {
     const html = layout(cfg, {
       preheader: `Код: ${b.code}. Действует ${b.minutes} минут`, title: b.isNew ? 'Код для регистрации' : 'Код для входа',
       body: p('Здравствуйте!') + p(`Код для ${b.isNew ? 'регистрации и входа' : 'входа'} в личный кабинет:`) +
-        `<p style="margin:8px 0 18px;font-size:34px;line-height:1.2;font-weight:bold;letter-spacing:8px;color:#2a211b;font-family:Arial,Helvetica,sans-serif;">${esc(b.code)}</p>` +
+        `<p style="margin:8px 0 18px;font-size:34px;line-height:1.2;font-weight:bold;letter-spacing:8px;color:#2a211b;">${esc(b.code)}</p>` +
         p('Введите его на сайте, на любом устройстве: например, письмо открыть на телефоне, а код ввести на компьютере.') +
         p(`<span style="color:#7a6a5c;font-size:13px;">Код действует ${b.minutes} минут. Если вы не запрашивали вход, просто удалите это письмо.</span>`),
     });
