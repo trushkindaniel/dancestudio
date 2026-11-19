@@ -104,6 +104,10 @@ function createNotifier(cfg, deps = {}) {
         telegramAdmin(adminSub(cfg, kind, s).subject),
       ]);
     },
+    /** Ссылка для входа в личный кабинет: только клиенту */
+    async loginLink(email, b) {
+      await send(email, templates.loginLink(cfg, b));
+    },
     async cancelled(b) {
       await telegramAdmin(`Клиент отменил бронь ${b.code} (${when(b)}).`);
     },

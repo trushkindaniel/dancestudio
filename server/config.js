@@ -104,6 +104,15 @@ function buildConfig(env = process.env) {
     },
 
     // постоянная бронь «каждую неделю» с автосписанием с карты (нужны автоплатежи в магазине ЮKassa)
+    // личный кабинет: вход по ссылке из письма
+    auth: {
+      secret: env.AUTH_SECRET || '',
+      secretFile: path.join(path.resolve(__dirname, '..'), 'data', 'auth-secret'),
+      accountsFile: env.ACCOUNTS_FILE || path.join(path.resolve(__dirname, '..'), 'data', 'accounts.json'),
+      loginMinutes: num(env, 'LOGIN_LINK_MINUTES', 30),
+      sessionDays: num(env, 'SESSION_DAYS', 30),
+    },
+
     subscriptions: {
       enabled: env.SUBSCRIPTIONS === '1',
       weeks: num(env, 'SUB_WEEKS', 8),                 // на сколько недель вперёд закреплено время

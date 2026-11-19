@@ -39,6 +39,10 @@ function createMemoryCalendar() {
       return [...events.values()].filter((e) => e.private.code === code).map(clone);
     },
 
+    async listBookings(from, to) {
+      return [...events.values()].filter((e) => e.private.managed === '1' && new Date(e.start) >= from && new Date(e.start) < to).map(clone);
+    },
+
     async listPending() {
       return [...events.values()].filter((e) => e.private.status === 'pending').map(clone);
     },

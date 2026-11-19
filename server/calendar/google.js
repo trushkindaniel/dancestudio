@@ -107,6 +107,11 @@ function createGoogleCalendar(cfg, deps = {}) {
       return (j.items || []).map(normalize);
     },
 
+    async listBookings(from, to) {
+      const j = await call('GET', '/events', { query: { privateExtendedProperty: 'managed=1', singleEvents: 'true', timeMin: from.toISOString(), timeMax: to.toISOString(), maxResults: '250' } });
+      return (j.items || []).map(normalize);
+    },
+
     async listPending() {
       const j = await call('GET', '/events', { query: { privateExtendedProperty: 'status=pending', singleEvents: 'true', maxResults: '250' } });
       return (j.items || []).map(normalize);

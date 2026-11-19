@@ -852,6 +852,18 @@
     if (d.length > 8) s += '-' + d.slice(8, 10);
     return s;
   }
+  // вход в личный кабинет выполнен (cookie az55_in): точка на значке в шапке, почта и контакты в форме записи
+  function fillFromAccount() {
+    if (!/(?:^|;\s*)az55_in=1/.test(document.cookie)) return;
+    var ico = $('topAccount'); if (ico) { ico.classList.add('is-in'); ico.setAttribute('aria-label', 'Личный кабинет (вход выполнен)'); }
+    fetch('/api/account').then(function (r) { return r.ok ? r.json() : null; }).then(function (a) {
+      if (!a) return;
+      if (!$('fEmail').value) $('fEmail').value = a.email;
+      if (a.profile && a.profile.name && !$('fName').value) $('fName').value = a.profile.name;
+      if (a.profile && a.profile.phone && !$('fPhone').value) { $('fPhone').value = a.profile.phone; $('fPhone').dispatchEvent(new Event('input')); }
+    }).catch(function () {});
+  }
+
   function setupPhoneMask() {
     var el = $('fPhone'), prev = '';
     el.setAttribute('inputmode', 'tel');
@@ -913,6 +925,7 @@
       $(id).addEventListener('input', function () { $(id).removeAttribute('aria-invalid'); $('e' + id.slice(1)).textContent = ''; });
     });
     setupPhoneMask();
+    fillFromAccount();
     $('bookForm').addEventListener('submit', onSubmit);
     $('payClose').addEventListener('click', function () { dlg.close(); });
     // крестик: пока идёт оплата, закрыть окно — значит отказаться от брони (слот освобождается); иначе просто закрыть

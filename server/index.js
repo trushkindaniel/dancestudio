@@ -12,6 +12,7 @@ const { createPayments } = require('./payments');
 const { createApp } = require('./app');
 const { createJsonStore } = require('./store');
 const { createSubscriptionService } = require('./subscriptions');
+const { createAuthService, loadSecret } = require('./auth');
 const { seedDemoBusy } = require('./seed');
 
 // Сервер должен работать в одном экземпляре: защита от двойной брони и лимиты живут в памяти процесса.
@@ -42,7 +43,8 @@ async function main() {
   const payments = createPayments(cfg);
   const booking = createBookingService({ calendar, cfg, notify, payments });
   // постоянная бронь с автосписанием: включается SUBSCRIPTIONS=1, когда в ЮKassa подключены автоплатежи
-  const subs = createSubscriptionService({ calendar, cfg, notify, payments, booking, store: createJsonStore(cfg.subscriptions.file) });
+  const subsStore = createJsonStore(cfg.subscriptions.file);
+  const subs = createSubscriptionService({ calendar, cfg, notify, payments, booking, store: subsStore });
   booking.setSubscriptions(cfg.subscriptions.enabled ? subs : null, subs.hooks);
   if (payments && payments.provider === 'fake') console.log('[dev] Оплата: имитация ЮKassa, деньги не списываются.');
 
@@ -51,7 +53,8 @@ async function main() {
     console.log(`[dev] Календарь в памяти, добавлено демо-занятых часов: ${n}. Настоящий Google не подключён.`);
   }
 
-  const server = createApp({ cfg, booking, calendar, payments, subs, trustProxy: process.env.TRUST_PROXY === '1' });
+  const auth = createAuthService({ cfg, secret: loadSecret(cfg), accounts: createJsonStore(cfg.auth.accountsFile), notify, calendar, booking, subsStore });
+  const server = createApp({ cfg, booking, calendar, payments, subs, auth, trustProxy: process.env.TRUST_PROXY === '1' });
 
   const runSweep = () => booking.sweep()
     .then((r) => { if (r.paid || r.expired || r.errors) console.log('[sweep]', r); })

@@ -155,6 +155,11 @@ h3 { font-family: var(--font-body); font-weight: 700; font-size: 18px; line-heig
 .top-phone { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 12px; border-radius: 999px; text-decoration: none; font-weight: 600; font-size: 15px; color: var(--text); white-space: nowrap; }
 .top-phone svg { color: var(--violet); }
 .top-phone:hover { color: var(--violet); }
+/* значок личного кабинета; точка — вход выполнен */
+.top-account { position: relative; display: inline-grid; place-items: center; flex: 0 0 auto; width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--line); color: var(--violet); background: var(--surface); text-decoration: none; transition: border-color .2s, color .2s, background .2s; }
+.top-account:hover { border-color: var(--violet); background: var(--surface-2); }
+.top-account:focus-visible { outline: 3px solid rgba(227, 175, 186, .45); outline-offset: 2px; }
+.top-account.is-in::after { content: ""; position: absolute; right: 3px; top: 3px; width: 10px; height: 10px; border-radius: 50%; background: #3fa66b; border: 2px solid var(--surface); }
 .h1-spark { margin-top: .1em; width: .26em; height: .26em; fill: var(--spark); animation: twinkle 3.2s ease-in-out infinite; }
 .lead { font-size: clamp(17px, 1.6vw, 19px); color: var(--muted); max-width: 46ch; margin-top: 24px; }
 .cta-row { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 32px; }
@@ -570,6 +575,14 @@ dialog::backdrop { background: rgba(8, 6, 11, .8); }
 @media (max-width: 900px) { .nav { display: none; } }
 @media (max-width: 720px) {
   .brand .logo { font-size: 23px; white-space: nowrap; }
+}
+/* телефоны: логотип, телефон, личный кабинет и «Записаться» в одну строку */
+@media (max-width: 420px) {
+  .top { padding: 6px 6px 6px 14px; gap: 8px; }
+  .brand .logo { font-size: 20px; }
+  .top-actions { gap: 6px; }
+  .top-phone, .top-account { width: 40px; height: 40px; min-height: 40px; }
+  .top-actions .btn-sm { min-height: 40px; padding: 0 13px; font-size: 14px; }
 }
 
 /* сдвинутые до появления блоки не должны давать горизонтальную прокрутку */

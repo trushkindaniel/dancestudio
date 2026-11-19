@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Личный кабинет — постоянная бронь — Аренда зала 55</title>
+<title>Личный кабинет — Аренда зала 55</title>
 <meta name="robots" content="noindex">
 <meta name="theme-color" content="#f8f2eb">
 <link rel="icon" href="/icons/favicon-32.png" type="image/png" sizes="32x32">
@@ -64,6 +64,30 @@
   .card-pay-note { margin: 14px 0 0; color: var(--muted); font-size: 14px; line-height: 1.5; }
   .pay-due { border-color: var(--spark); }
   .pay-due .plan-actions { margin-top: 14px; }
+  .cab-out { margin-left: auto; }
+  .auth-card { max-width: 620px; }
+  .auth-card p { color: var(--muted); line-height: 1.6; }
+  .auth-card form { margin-top: 18px; }
+  .cab-ava.guest::after { content: none; }
+  .auth-row { display: flex; flex-wrap: wrap; gap: 10px; }
+  .auth-row input { flex: 1 1 240px; }
+  .auth-row .btn { flex: 0 0 auto; }
+  .auth-err { min-height: 20px; margin: 8px 0 0; color: var(--danger); font-size: 14px; }
+  .auth-note { margin: 4px 0 0; font-size: 13px; }
+  .auth-note a, .auth-card p a { color: var(--violet); }
+  .auth-sent { display: grid; gap: 4px; padding: 16px; border-radius: 14px; background: #e8f4ec; border: 1px solid #bfdfca; color: #22663e; }
+  .auth-sent b { color: #1c4f31; }
+  .sub-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: -20px 0 24px; }
+  .sub-tabs button { min-height: 40px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--text); font: inherit; font-size: 14px; cursor: pointer; }
+  .sub-tabs button[aria-pressed="true"] { background: var(--violet); border-color: var(--violet); color: #fff; }
+  .my-bookings { margin-top: 20px; }
+  .my-bookings li { align-items: center; }
+  .my-bookings li span small { display: block; color: var(--muted); font-size: 13px; }
+  .wait-chip { display: inline-block; padding: 3px 10px; border-radius: 999px; background: var(--surface-2); color: var(--muted); font-size: 13px; font-weight: 700; white-space: nowrap; }
+  .cab-user > div:nth-child(2) { min-width: 0; }
+  .cab-mail { margin: 4px 0 0; color: var(--muted); font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cab-name { overflow-wrap: anywhere; }
+  @media (max-width: 560px) { .cab-user { flex-wrap: wrap; gap: 14px; } .cab-user > div:nth-child(2) { flex: 1 1 0; } .cab-ava { width: 56px; height: 56px; } .cab-out { margin-left: 0; } }
   .bind-widget { min-height: 120px; margin: 4px 0 0; text-align: left; }
   .bind-demo { padding: 16px; border-radius: 14px; border: 1px dashed var(--line); background: var(--bg); color: var(--muted); font-size: 14px; text-align: left; }
   .bind-demo .btn { margin-top: 12px; }
@@ -184,21 +208,118 @@
   // вернулись со страницы оплаты: убираем метку из адреса, кабинет сам узнает итог у ЮKassa
   if (q.get('paid')) { q.delete('paid'); history.replaceState(null, '', location.pathname + '?' + q.toString()); }
 
-  function load() {
-    if (demo) return render(JSON.parse(JSON.stringify(DEMO)));
-    if (!id || !t) {
-      cab.innerHTML = '<div class="cab-user"><div class="cab-ava" aria-hidden="true">55</div><div><p class="cab-kicker">Личный кабинет</p><h1 class="cab-name">Постоянная бронь</h1></div></div>' +
-        '<section class="card"><h2>Как войти</h2>' +
-        '<p>Личный кабинет открывается по персональной ссылке из письма, которое приходит после оплаты первого занятия постоянной брони. В кабинете видно расписание, дату следующего списания и историю платежей, там же можно привязать или отвязать карту и отменить постоянную бронь.</p>' +
-        '<p>Не можете найти письмо? Позвоните: <a href="tel:+79136581900">8 913 658-19-00</a>, пришлём ссылку ещё раз.</p>' +
-        '<div class="plan-actions" style="margin-top:16px"><a class="btn" href="/#booking">Оформить постоянную бронь</a><a class="btn btn-ghost" href="/subscription?demo=1">Посмотреть пример кабинета</a></div></section>';
-      return;
-    }
+  // ---------- вход и регистрация по почте ----------
+  var account = null, loginAt = q.get('login');
+  var LOGIN_HEAD = '<div class="cab-user"><div class="cab-ava guest" aria-hidden="true">55</div><div><p class="cab-kicker">Личный кабинет</p><h1 class="cab-name">Вход и регистрация</h1></div></div>';
+  var api = function (url, opts) {
+    return fetch(url, opts).then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { if (!r.ok) { var e = new Error(j.message || 'Ошибка'); e.status = r.status; throw e; } return j; }); });
+  };
+
+  function renderLogin(err, email) {
+    cab.innerHTML = LOGIN_HEAD +
+      '<section class="card auth-card"><h2>Войти по почте</h2>' +
+      '<p>Введите почту, на которую оформляли бронь. Пришлём ссылку для входа. Если вы у нас впервые, по ссылке из письма создастся личный кабинет.</p>' +
+      '<form id="loginForm" novalidate><label for="loginEmail">Почта</label>' +
+      '<div class="auth-row"><input id="loginEmail" type="email" inputmode="email" autocomplete="email" placeholder="name@mail.ru" required value="' + esc(email || '') + '">' +
+      '<button class="btn" type="submit" id="loginBtn">Получить ссылку</button></div>' +
+      '<p class="auth-err" id="loginErr" role="alert">' + esc(err || '') + '</p></form>' +
+      '<p class="auth-note">Пароль не нужен: входите по ссылке из письма, она действует 30 минут. Нажимая кнопку, вы соглашаетесь с <a href="/privacy">политикой обработки персональных данных</a>.</p></section>' +
+      '<p class="auth-note" style="margin-top:20px"><a href="/subscription?demo=1">Посмотреть пример кабинета</a></p>';
+    document.getElementById('loginForm').onsubmit = sendLink;
+  }
+
+  function sendLink(e) {
+    e.preventDefault();
+    var input = document.getElementById('loginEmail'), btn = document.getElementById('loginBtn'), errEl = document.getElementById('loginErr');
+    var email = input.value.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) { errEl.textContent = 'Проверьте почту, например name@mail.ru'; input.setAttribute('aria-invalid', 'true'); input.focus(); return; }
+    input.removeAttribute('aria-invalid'); errEl.textContent = ''; btn.disabled = true; btn.textContent = 'Отправляем…';
+    api('/api/auth/request', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: email }) })
+      .then(function (j) {
+        cab.innerHTML = LOGIN_HEAD + '<section class="card auth-card"><h2>Проверьте почту</h2>' +
+          '<div class="auth-sent"><span>Отправили ссылку для входа на</span><b>' + esc(j.email) + '</b></div>' +
+          '<p>Откройте письмо и нажмите «Войти в кабинет». Ссылка действует 30 минут. Письма нет? Проверьте папку «Спам» или <a href="#" id="again">отправьте ещё раз</a>.</p></section>';
+        document.getElementById('again').onclick = function (ev) { ev.preventDefault(); renderLogin('', j.email); };
+      })
+      .catch(function (x) { btn.disabled = false; btn.textContent = 'Получить ссылку'; errEl.textContent = x.message === 'Failed to fetch' ? 'Нет связи с сервером, попробуйте ещё раз' : x.message; });
+  }
+
+  function logout() {
+    api('/api/auth/logout', { method: 'POST' }).catch(function () {}).then(function () { account = null; id = ''; t = ''; history.replaceState(null, '', location.pathname); renderLogin(); });
+  }
+
+  function loadAccount() {
+    api('/api/account').then(function (a) {
+      account = a;
+      if (!a.subs.length) return renderAccount();
+      var pick = a.subs.filter(function (s) { return s.id === id; })[0] || a.subs[0];
+      id = pick.id; t = pick.t;
+      loadSub();
+    }).catch(function (e) {
+      if (e.status === 401) return renderLogin();
+      cab.innerHTML = '<p class="cab-msg">' + esc(e.message === 'Failed to fetch' ? 'Нет связи с сервером, обновите страницу' : e.message) + '.</p>';
+    });
+  }
+
+  // шапка кабинета: имя или почта, кнопка «Выйти», переключатель постоянных броней
+  function accountHead(name) {
+    if (!account) return '';
+    var who = name || account.email;
+    return '<div class="cab-user"><div class="cab-ava" aria-hidden="true">' + esc(who.trim().charAt(0).toUpperCase()) + '</div>' +
+      '<div><p class="cab-kicker">Личный кабинет</p><h1 class="cab-name">' + esc(who) + '</h1>' + (who !== account.email ? '<p class="cab-mail">' + esc(account.email) + '</p>' : '') + '</div>' +
+      '<button class="btn btn-ghost btn-sm cab-out" type="button" data-logout>Выйти</button></div>';
+  }
+  function subTabs() {
+    if (!account || account.subs.length < 2) return '';
+    return '<div class="sub-tabs" role="group" aria-label="Постоянные брони">' + account.subs.map(function (s, i) {
+      return '<button type="button" data-sub="' + i + '" aria-pressed="' + (s.id === id) + '">Постоянная бронь ' + (i + 1) + (s.status === 'cancelled' ? ' (отменена)' : '') + '</button>';
+    }).join('') + '</div>';
+  }
+  function bookingsBlock() {
+    if (!account) return '';
+    var list = account.bookings.length
+      ? '<ul class="rows">' + account.bookings.map(function (b) {
+          return '<li><span><b style="color:var(--text);font-weight:600">' + esc(cap(b.when)) + '</b><small>Бронь ' + esc(b.code) + ' · ' + money(b.total) + '</small></span>' +
+            (b.status === 'paid' ? '<span class="ok-chip">оплачено</span>' : '<span class="wait-chip">ждёт оплаты</span>') + '</li>';
+        }).join('') + '</ul>'
+      : '<p class="empty-pay">Предстоящих разовых броней нет.</p>';
+    return '<section class="card my-bookings"><h2>Мои брони</h2>' + list +
+      '<div class="plan-actions" style="margin-top:16px"><a class="btn" href="/#booking">Забронировать зал</a></div></section>';
+  }
+  function renderAccount() {
+    cab.innerHTML = accountHead(account.profile && account.profile.name) +
+      '<h2>Постоянная бронь</h2><section class="card"><p class="cab-msg" style="margin:0 0 16px">Постоянной брони пока нет. Закрепите за собой одно и то же время каждую неделю: выберите часы в календаре и отметьте «Каждую неделю».</p>' +
+      '<div class="plan-actions"><a class="btn btn-ghost" href="/#booking">Оформить постоянную бронь</a></div></section>' +
+      bookingsBlock();
+  }
+  cab.addEventListener('click', function (e) {
+    if (e.target.closest('[data-logout]')) return logout();
+    var tab = e.target.closest('[data-sub]');
+    if (tab && account) { var s = account.subs[+tab.getAttribute('data-sub')]; id = s.id; t = s.t; loadSub(); }
+  });
+
+  function loadSub() {
     fetch('/api/sub/' + encodeURIComponent(id) + '?t=' + encodeURIComponent(t)).then(function (r) {
       return r.json().then(function (j) { if (!r.ok) throw new Error(j.message || 'Ошибка'); return j; });
     }).then(render).catch(function (e) {
       cab.innerHTML = '<p class="cab-msg">' + esc(e.message === 'Failed to fetch' ? 'Нет связи с сервером, обновите страницу' : e.message) + '. Откройте ссылку из письма ещё раз или позвоните нам: <a href="tel:+79136581900">8 913 658-19-00</a>.</p>';
     });
+  }
+
+  function load() {
+    if (demo) return render(JSON.parse(JSON.stringify(DEMO)));
+    if (loginAt) {
+      // ссылка из письма: вход (и регистрация при первом входе), потом убираем ссылку из адреса
+      var tok = loginAt; loginAt = null;
+      q.delete('login'); history.replaceState(null, '', location.pathname + (q.toString() ? '?' + q.toString() : ''));
+      return api('/api/auth/verify', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: tok }) })
+        .then(loadAccount)
+        .catch(function (e) { renderLogin(e.message === 'Failed to fetch' ? 'Нет связи с сервером, обновите страницу' : e.message); });
+    }
+    if (!id || !t) return loadAccount();
+    // ссылка из письма о постоянной брони работает и без входа; если вход выполнен, видны и остальные брони
+    if (/(?:^|;\s*)az55_in=1/.test(document.cookie)) return loadAccount();
+    loadSub();
   }
 
   function stateBadge(s) {
@@ -222,8 +343,9 @@
     }).join('');
     cab.innerHTML =
       (demo ? '<p class="cab-demo">Пример личного кабинета: так клиент видит свою постоянную бронь. Данные на этой странице условные, отмена здесь ничего не меняет. Как клиент оформляет постоянную бронь: <a href="/?subs=preview#booking">форма записи</a>.</p>' : '') +
+      (account ? accountHead(s.name) + subTabs() :
       '<div class="cab-user"><div class="cab-ava" aria-hidden="true">' + esc((s.name || '?').trim().charAt(0).toUpperCase()) + '</div>' +
-        '<div><p class="cab-kicker">Личный кабинет</p><h1 class="cab-name">' + esc(s.name) + '</h1></div></div>' +
+        '<div><p class="cab-kicker">Личный кабинет</p><h1 class="cab-name">' + esc(s.name) + '</h1></div></div>') +
       '<h2>Моя постоянная бронь</h2>' +
       '<section class="card"><div class="plan">' +
         '<div class="plan-ico" aria-hidden="true"><svg width="26" height="26" viewBox="0 0 24 24"><path d="M12 2.5l2.4 6.6 6.6 2.4-6.6 2.4L12 20.5l-2.4-6.6L3 11.5l6.6-2.4z" fill="currentColor"/></svg></div>' +
@@ -252,7 +374,8 @@
         '</ul></section>' +
         '<section class="card"><h2>История платежей</h2>' + pays + '</section>' +
       '</div>' +
-      '<section class="card lessons"><h2>Ближайшие занятия</h2><ul>' + lessons + '</ul></section>';
+      '<section class="card lessons"><h2>Ближайшие занятия</h2><ul>' + lessons + '</ul></section>' +
+      bookingsBlock();
     var b = document.getElementById('cancelBtn');
     if (b) b.onclick = openConfirm;
     var u = document.getElementById('unbindBtn');
@@ -269,7 +392,7 @@
     btn.disabled = true; msg.textContent = 'Открываем страницу оплаты…';
     fetch('/api/sub/' + encodeURIComponent(id) + '/pay?t=' + encodeURIComponent(t), { method: 'POST' })
       .then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.message || 'Ошибка'); return j; }); })
-      .then(function (j) { if (j.paid) return load(); location.href = j.confirmationUrl; })
+      .then(function (j) { if (j.paid) return loadSub(); location.href = j.confirmationUrl; })
       .catch(function (e) { btn.disabled = false; msg.textContent = e.message || 'Не получилось, попробуйте ещё раз.'; });
   }
 
@@ -353,7 +476,7 @@
     bindMsg('Проверяем карту…');
     fetch('/api/sub/' + encodeURIComponent(id) + '/card/bind?t=' + encodeURIComponent(t)).then(function (r) { return r.json(); }).then(function (j) {
       if (j.status === 'pending' && n < 15) return setTimeout(function () { pollBind(n + 1); }, 2000);
-      if (j.status === 'bound') { bindDlg.close(); load(); return; }
+      if (j.status === 'bound') { bindDlg.close(); loadSub(); return; }
       bindMsg(j.message || 'Банк ещё не ответил. Обновите страницу через минуту.');
     }).catch(function () { bindMsg('Нет связи с сервером, обновите страницу.'); });
   }
@@ -380,7 +503,7 @@
     if (demo && confirmAction === 'unbind') { data.card = ''; data.status = 'paused'; release(); render(data); return done(); }
     if (demo) { data.status = 'cancelled'; release(); render(data); return done(); }
     fetch('/api/sub/' + encodeURIComponent(id) + (confirmAction === 'unbind' ? '/card/unbind' : '/cancel') + '?t=' + encodeURIComponent(t), { method: 'POST' })
-      .then(function (r) { if (!r.ok) throw new Error(); done(); load(); })
+      .then(function (r) { if (!r.ok) throw new Error(); done(); loadSub(); })
       .catch(function () { yes.disabled = false; document.getElementById('confirmErr').textContent = 'Не получилось, попробуйте ещё раз или позвоните нам.'; });
   };
   load();

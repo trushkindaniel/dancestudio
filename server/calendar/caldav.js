@@ -201,6 +201,12 @@ function createCalDavCalendar(cfg, deps = {}) {
       return out;
     },
 
+    /** Брони сайта (не чужие события) с началом в [from, to) */
+    async listBookings(from, to) {
+      const items = await query(from, to, false);
+      return items.filter((x) => x.ev.data.managed === '1' && x.ev.start && x.ev.start >= from && x.ev.start < to).map((x) => normalize(x.id, x.ev));
+    },
+
     async listPending() {
       const t = now();
       const from = new Date(t.getTime() - 2 * 86400000);

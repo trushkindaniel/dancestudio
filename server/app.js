@@ -91,7 +91,7 @@ function serveStatic(req, res, pathname) {
   });
 }
 
-function createApp({ cfg, booking, calendar, payments = null, subs = null, now = () => new Date(), log = console, trustProxy = false }) {
+function createApp({ cfg, booking, calendar, payments = null, subs = null, auth = null, now = () => new Date(), log = console, trustProxy = false }) {
   const allow = createRateLimiter();
 
   const clientIp = (req) => {
@@ -145,6 +145,26 @@ function createApp({ cfg, booking, calendar, payments = null, subs = null, now =
       if (!payments || !PAYMENT_ID_RE.test(String(id || ''))) return send(res, 200, { ok: true, ignored: true });
       const result = await booking.syncPayment(String(id)); // сбой API → 500, и ЮKassa пришлёт уведомление повторно
       return send(res, 200, { ok: true, result });
+    }
+
+    // Личный кабинет: вход и регистрация по ссылке из письма
+    if (auth && pathname.startsWith('/api/auth/') || auth && pathname === '/api/account') {
+      if (req.method === 'POST' && pathname === '/api/auth/request') {
+        const body = await readJson(req);
+        const email = String((body && body.email) || '').trim().toLowerCase();
+        if (!allow(`login:${ip}`, 6, 10 * 60_000) || !allow(`login:${email}`, 3, 10 * 60_000)) throw new AppError(429, 'rate_limit', 'Слишком много запросов. Проверьте почту или попробуйте через 10 минут.');
+        return send(res, 200, await auth.requestLink(body));
+      }
+      if (req.method === 'POST' && pathname === '/api/auth/verify') {
+        if (!allow(`verify:${ip}`, 20, 10 * 60_000)) throw new AppError(429, 'rate_limit', 'Слишком много попыток');
+        const r = auth.verify(await readJson(req, 4000));
+        return send(res, 200, r.body, { 'Set-Cookie': r.cookies });
+      }
+      if (req.method === 'POST' && pathname === '/api/auth/logout') return send(res, 200, { ok: true }, { 'Set-Cookie': auth.logoutCookies() });
+      if (req.method === 'GET' && pathname === '/api/account') {
+        if (!allow(`account:${ip}`, 60, 10 * 60_000)) throw new AppError(429, 'rate_limit', 'Слишком много запросов');
+        return send(res, 200, await auth.account(req.headers.cookie));
+      }
     }
 
     // Постоянная бронь: просмотр и отмена по ссылке из письма
