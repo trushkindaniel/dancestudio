@@ -240,6 +240,7 @@ function createSubscriptionService({ calendar, cfg, notify, payments, store, boo
         return;
       }
       if (w.status === 'reserved' && t >= start - S.chargeDaysBefore * DAY && (!w.nextTryAt || t >= Date.parse(w.nextTryAt))) {
+        if (!sub.paymentMethod) continue;                // карту отвязали — ждём новую, к сроку освободим
         await charge(sub, w);
       }
     }
@@ -269,6 +270,7 @@ function createSubscriptionService({ calendar, cfg, notify, payments, store, boo
     const result = { processed: 0, errors: 0 };
     if (!enabled()) return result;
     for (const sub of store.all()) {
+      if (sub.bindPaymentId) await B.withLock(() => finishBind(sub)).catch((e) => log.error(`[sub] ${sub.id}: привязка карты:`, e.message));
       if (sub.status !== 'active') continue;
       try {
         await B.withLock(() => process(sub));
@@ -279,6 +281,89 @@ function createSubscriptionService({ calendar, cfg, notify, payments, store, boo
       }
     }
     return result;
+  }
+
+  // ---------- карта для автосписаний: привязать и отвязать ----------
+  /** Вернуть паузу в работу: закрепить снова освобождённые будущие недели, если время свободно (под замком) */
+  async function reactivate(sub) {
+    sub.status = 'active'; sub.endReason = '';
+    const t = now().getTime();
+    for (const w of [...sub.weeks].sort((a, b) => a.k - b.k)) {
+      if (w.status !== 'released' || weekStart(sub, w.k) <= t + S.releaseHoursBefore * 3600000) continue;
+      const parts = weekParts(sub, w.k);
+      const from = T.zonedToUtc(parts[0].date, 0, cfg.tz);
+      const busy = await calendar.listBusy(new Date(from.getTime() - DAY), new Date(from.getTime() + 8 * DAY));
+      if (!parts.some((p) => overlaps(busy, p))) await reserve(sub, w.k);
+    }
+    await process(sub);
+  }
+
+  /** Отвязать карту: автосписания прекращаются, неоплаченные будущие занятия освобождаются, бронь на паузе */
+  async function unbindCard(id, token) {
+    return B.withLock(async () => {
+      const sub = owned(id, token);
+      if (!sub) throw new AppError(404, 'not_found', 'Постоянная бронь не найдена');
+      if (!sub.paymentMethod) return { ok: true };
+      const card = sub.paymentMethod.title;
+      sub.paymentMethod = null;
+      await releaseFuture(sub);
+      if (sub.status === 'active') { sub.status = 'paused'; sub.endReason = 'card_unbound'; }
+      store.put(sub);
+      await notify.subscription('card_unbound', info(sub, { card }));
+      return { ok: true };
+    });
+  }
+
+  /** Привязать карту: проверочный платёж 1 ₽ в виджете ЮKassa с сохранением карты, рубль сразу возвращаем */
+  async function startBind(id, token) {
+    if (!enabled()) throw new AppError(400, 'subs_off', 'Привязка карты пока недоступна');
+    return B.withLock(async () => {
+      const sub = owned(id, token);
+      if (!sub) throw new AppError(404, 'not_found', 'Постоянная бронь не найдена');
+      if (sub.status === 'cancelled') throw new AppError(409, 'cancelled', 'Постоянная бронь отменена, оформите новую');
+      const attempt = (sub.bindAttempts || 0) + 1;
+      const p = await payments.createPayment({
+        code: `bind-${sub.id}`, total: 1, hoursCount: 0, email: sub.email, phone: sub.phone,
+        description: `Проверка карты для постоянной брони ${sub.id}, 1 ₽ вернём сразу`,
+        receiptText: `Проверка карты для автосписаний (постоянная бронь ${sub.id})`,
+        savePaymentMethod: true, sub: sub.id, idempotenceKey: `bind-${sub.id}-${attempt}`,
+      });
+      if (!p.confirmationToken) throw new AppError(502, 'payment_unavailable', 'ЮKassa не ответила, попробуйте ещё раз');
+      sub.bindAttempts = attempt;
+      sub.bindPaymentId = p.id;
+      store.put(sub);
+      return { provider: payments.provider, confirmationToken: p.confirmationToken };
+    });
+  }
+
+  /** Итог привязки (браузер спрашивает после формы ЮKassa; фоновая проверка тоже доводит до конца) */
+  async function finishBind(sub) {
+    if (!sub.bindPaymentId) return { status: 'none' };
+    const p = await payments.getPayment(sub.bindPaymentId);
+    if (p.status === 'pending' || p.status === 'waiting_for_capture') return { status: 'pending' };
+    sub.bindPaymentId = null;
+    if (p.status === 'succeeded') {
+      await payments.refund(p.id, p.amount, 'Возврат проверочного платежа за привязку карты').catch((e) => log.error(`[sub] ${sub.id}: возврат 1 ₽:`, e.message));
+      if (!p.paymentMethod || !p.paymentMethod.saved) {
+        store.put(sub);
+        return { status: 'failed', message: 'Этот способ оплаты не поддерживает автосписания, привяжите банковскую карту' };
+      }
+      sub.paymentMethod = { id: p.paymentMethod.id, title: p.paymentMethod.title || 'карта' };
+      if (sub.status === 'paused') await reactivate(sub);
+      store.put(sub);
+      await notify.subscription('card_bound', info(sub));
+      return { status: 'bound', card: sub.paymentMethod.title };
+    }
+    store.put(sub);
+    return { status: 'failed', message: 'Карту привязать не удалось, попробуйте ещё раз или другую карту' };
+  }
+
+  async function bindStatus(id, token) {
+    return B.withLock(async () => {
+      const sub = owned(id, token);
+      if (!sub) throw new AppError(404, 'not_found', 'Постоянная бронь не найдена');
+      return finishBind(sub);
+    });
   }
 
   // ---------- управление по ссылке из письма ----------
@@ -308,7 +393,7 @@ function createSubscriptionService({ calendar, cfg, notify, payments, store, boo
     const lastPaid = paidAhead.length ? weekStart(sub, paidAhead[paidAhead.length - 1].k) : null;
     return {
       id: sub.id, status: sub.status, schedule: schedule(sub), weekTotal: sub.weekTotal, card: sub.paymentMethod ? sub.paymentMethod.title : '',
-      chargeDaysBefore: S.chargeDaysBefore, name: sub.name,
+      chargeDaysBefore: S.chargeDaysBefore, name: sub.name, endReason: sub.endReason || '', canBind: sub.status !== 'cancelled',
       createdAt: fmtDate(Date.parse(sub.createdAt)),
       nextChargeAt: sub.status === 'active' && nextChargeAt ? fmtDate(nextChargeAt) : null,
       nextChargeAmount: next ? amountOf(next) : null,
@@ -335,7 +420,7 @@ function createSubscriptionService({ calendar, cfg, notify, payments, store, boo
     });
   }
 
-  return { book, tick, view, cancel, hooks: { onPaid, onDropped }, _process: process };
+  return { book, tick, view, cancel, unbindCard, startBind, bindStatus, hooks: { onPaid, onDropped }, _process: process };
 }
 
 module.exports = { createSubscriptionService };

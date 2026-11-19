@@ -148,12 +148,15 @@ function createApp({ cfg, booking, calendar, payments = null, subs = null, now =
     }
 
     // Постоянная бронь: просмотр и отмена по ссылке из письма
-    const sv = /^\/api\/sub\/(S[A-Z2-9]{6})(\/cancel)?$/.exec(pathname);
+    const sv = /^\/api\/sub\/(S[A-Z2-9]{6})(\/cancel|\/card\/bind|\/card\/unbind)?$/.exec(pathname);
     if (sv && subs) {
-      if (!allow(`sub:${ip}`, 30, 10 * 60_000)) throw new AppError(429, 'rate_limit', 'Слишком много запросов');
+      if (!allow(`sub:${ip}`, 60, 10 * 60_000)) throw new AppError(429, 'rate_limit', 'Слишком много запросов');
       const t = url.searchParams.get('t') || '';
       if (req.method === 'GET' && !sv[2]) return send(res, 200, subs.view(sv[1], t));
-      if (req.method === 'POST' && sv[2]) return send(res, 200, await subs.cancel(sv[1], t));
+      if (req.method === 'POST' && sv[2] === '/cancel') return send(res, 200, await subs.cancel(sv[1], t));
+      if (req.method === 'POST' && sv[2] === '/card/unbind') return send(res, 200, await subs.unbindCard(sv[1], t));
+      if (req.method === 'POST' && sv[2] === '/card/bind') return send(res, 200, await subs.startBind(sv[1], t));
+      if (req.method === 'GET' && sv[2] === '/card/bind') return send(res, 200, await subs.bindStatus(sv[1], t));
     }
 
     const del = req.method === 'DELETE' && /^\/api\/book\/([A-Za-z0-9]{4})$/.exec(pathname);

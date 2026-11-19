@@ -53,6 +53,18 @@
   .lessons li b { font-weight: 600; white-space: nowrap; }
   .lessons li.paid b { color: #22663e; }
   .cab-msg { color: var(--muted); }
+  .card-pay { margin-top: 20px; }
+  .card-pay-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; }
+  .cardface { display: flex; align-items: center; gap: 14px; }
+  .cardface-ico { display: grid; place-items: center; width: 56px; height: 40px; border-radius: 10px; background: linear-gradient(135deg, #2a211b, #5b4a40); color: #f8efe6; }
+  .cardface-ico.none { background: var(--surface-2); color: var(--muted); border: 1px dashed var(--line); }
+  .cardface small { display: block; color: var(--muted); font-size: 13px; }
+  .cardface b { font-size: 17px; }
+  .card-pay-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+  .card-pay-note { margin: 14px 0 0; color: var(--muted); font-size: 14px; line-height: 1.5; }
+  .bind-widget { min-height: 120px; margin: 4px 0 0; text-align: left; }
+  .bind-demo { padding: 16px; border-radius: 14px; border: 1px dashed var(--line); background: var(--bg); color: var(--muted); font-size: 14px; text-align: left; }
+  .bind-demo .btn { margin-top: 12px; }
   .btn-danger { background: #c9433f; border-color: #c9433f; color: #fff; }
   .btn-danger:hover { background: #a93532; border-color: #a93532; }
   /* окно подтверждения отмены */
@@ -95,7 +107,7 @@
     <button class="confirm-x" type="button" data-close aria-label="Закрыть">×</button>
     <div class="confirm-ico"><svg width="34" height="34" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 7v6M12 16.5v.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></div>
     <h3 id="confirmTitle">Отмена постоянной брони</h3>
-    <p>Уверены, что хотите отменить постоянную бронь?</p>
+    <p id="confirmQuestion">Уверены, что хотите отменить постоянную бронь?</p>
     <div class="confirm-card">
       <svg width="28" height="28" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5.5" width="18" height="13" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M3 10h18M7 15h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
       <div><small>Способ оплаты</small><b id="confirmCard"></b></div>
@@ -109,6 +121,16 @@
       <button class="btn btn-ghost" type="button" data-close>Назад</button>
     </div>
     <p class="cab-msg" id="confirmErr" style="margin:12px 0 0"></p>
+  </div>
+</dialog>
+
+<dialog class="confirm" id="bindDlg" aria-labelledby="bindTitle">
+  <div class="confirm-body">
+    <button class="confirm-x" type="button" data-close aria-label="Закрыть">×</button>
+    <h3 id="bindTitle">Привязать карту</h3>
+    <p>Для проверки спишем 1 ₽ и сразу вернём. Данные карты хранит ЮKassa, мы видим только последние цифры.</p>
+    <div class="bind-widget" id="bindWidget"></div>
+    <p class="cab-msg" id="bindMsg" style="margin:12px 0 0"></p>
   </div>
 </dialog>
 
@@ -189,11 +211,12 @@
         stateBadge(s) +
         '<div class="plan-actions">' +
           '<a class="btn" href="tel:+79136581900">Изменить время</a>' +
-          (active ? '<button class="btn btn-ghost" type="button" id="cancelBtn">Отменить постоянную бронь</button>' : '') +
+          (s.status !== 'cancelled' ? '<button class="btn btn-ghost" type="button" id="cancelBtn">Отменить постоянную бронь</button>' : '') +
         '</div></div>' +
         (active ? '<p class="cab-msg" style="margin:0;font-size:14px">Оплата за каждое занятие списывается с карты автоматически за ' + s.chargeDaysBefore + ' дн. до занятия. Чтобы перенести время, позвоните нам.</p>'
                 : '<p class="cab-msg" style="margin:0;font-size:14px">Автосписаний нет. Чтобы снова закрепить время, оформите постоянную бронь на главной странице или позвоните нам.</p>') +
       '</section>' +
+      cardBlock(s) +
       '<div class="grid2">' +
         '<section class="card"><h2>Информация о брони</h2><ul class="rows">' +
           '<li><span>Дата оформления</span><b>' + esc(s.createdAt) + '</b></li>' +
@@ -205,10 +228,105 @@
       '<section class="card lessons"><h2>Ближайшие занятия</h2><ul>' + lessons + '</ul></section>';
     var b = document.getElementById('cancelBtn');
     if (b) b.onclick = openConfirm;
+    var u = document.getElementById('unbindBtn');
+    if (u) u.onclick = openUnbind;
+    var k = document.getElementById('bindBtn');
+    if (k) k.onclick = openBind;
   }
 
+  function cardBlock(s) {
+    var has = Boolean(s.card), canBind = s.canBind !== false && s.status !== 'cancelled';
+    var ico = '<svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5.5" width="18" height="13" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M3 10h18M7 15h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
+    return '<section class="card card-pay"><h2>Карта для автосписаний</h2><div class="card-pay-row">' +
+      '<div class="cardface"><div class="cardface-ico' + (has ? '' : ' none') + '">' + ico + '</div>' +
+        '<div><small>' + (has ? 'Привязана' : 'Карта не привязана') + '</small><b>' + esc(has ? s.card : 'Автосписаний нет') + '</b></div></div>' +
+      '<div class="card-pay-actions">' +
+        (has ? '<button class="btn btn-ghost" type="button" id="unbindBtn">Отвязать карту</button>' : '') +
+        (canBind ? '<button class="btn" type="button" id="bindBtn">' + (has ? 'Привязать другую карту' : 'Привязать карту') + '</button>' : '') +
+      '</div></div>' +
+      '<p class="card-pay-note">' + (has
+        ? 'Оплата за каждое занятие списывается с этой карты за ' + s.chargeDaysBefore + ' дн. до занятия. Если отвязать карту, автосписания прекратятся.'
+        : (s.status === 'paused' ? 'Постоянная бронь на паузе. Привяжите карту, и свободное время снова закрепится за вами.' : 'Карта нужна для автосписаний за занятия.')) +
+      ' При привязке спишем 1 ₽ для проверки и сразу вернём.</p></section>';
+  }
+
+  // ---------- отвязка карты ----------
+  var confirmAction = null;
+  function openUnbind() {
+    document.getElementById('confirmTitle').textContent = 'Отвязать карту';
+    document.getElementById('confirmQuestion').textContent = 'Уверены, что хотите отвязать карту от постоянной брони?';
+    document.getElementById('confirmCard').textContent = data.card;
+    document.getElementById('confirmWarn').textContent = 'Автосписания прекратятся, неоплаченные занятия освободятся, постоянная бронь встанет на паузу. Чтобы продолжить, привяжите карту снова.' +
+      (data.paidUntil ? ' Оплаченные занятия останутся за вами, последнее — ' + data.paidUntil + '.' : '');
+    document.getElementById('confirmYes').textContent = 'Отвязать карту';
+    document.getElementById('confirmErr').textContent = '';
+    confirmAction = 'unbind';
+    dlg.showModal();
+  }
+
+  // ---------- привязка карты: проверочный 1 ₽ в форме ЮKassa ----------
+  var bindDlg = document.getElementById('bindDlg'), bindWidget = null;
+  var WIDGET_COLORS = { control_primary: '#9C5A6A', control_primary_content: '#FFFFFF', background: '#FFFBF7', text: '#2A211B', border: '#E3D5C8', control_secondary: '#F4EBE2' };
+  function loadWidget() {
+    if (window.YooMoneyCheckoutWidget) return Promise.resolve();
+    return new Promise(function (resolve, reject) {
+      var s = document.createElement('script'); s.src = 'https://yookassa.ru/checkout-widget/v1/checkout-widget.js'; s.onload = resolve; s.onerror = reject; document.head.appendChild(s);
+    });
+  }
+  function bindMsg(t) { document.getElementById('bindMsg').textContent = t || ''; }
+  function openBind() {
+    var box = document.getElementById('bindWidget');
+    box.innerHTML = ''; bindMsg('');
+    bindDlg.showModal();
+    if (demo) {
+      box.innerHTML = '<div class="bind-demo">Здесь откроется форма ЮKassa для ввода карты. В примере кабинета привязка имитируется.<br><button class="btn" type="button" id="demoBind">Привязать карту *1111 (пример)</button></div>';
+      document.getElementById('demoBind').onclick = function () {
+        data.card = 'Bank card *1111';
+        if (data.status === 'paused') { data.status = 'active'; data.weeks = data.weeks.map(function (w) { return w.status === 'released' ? { label: w.label, status: 'reserved', statusLabel: 'закреплено' } : w; }); data.nextChargeAt = DEMO.nextChargeAt; }
+        bindDlg.close(); render(data);
+      };
+      return;
+    }
+    box.textContent = 'Загружаем форму…';
+    fetch('/api/sub/' + encodeURIComponent(id) + '/card/bind?t=' + encodeURIComponent(t), { method: 'POST' })
+      .then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.message || 'Ошибка'); return j; }); })
+      .then(function (j) {
+        box.textContent = '';
+        if (j.provider === 'fake') {   // режим разработки
+          box.innerHTML = '<div class="bind-demo">Режим разработки: имитация формы ЮKassa.<br><button class="btn" type="button" data-fake="succeeded">Привязать</button> <button class="btn btn-ghost" type="button" data-fake="canceled">Отказаться</button></div>';
+          box.onclick = function (e) {
+            var b = e.target.closest('[data-fake]'); if (!b) return;
+            fetch('/api/dev/pay/' + j.confirmationToken + '?result=' + b.getAttribute('data-fake'), { method: 'POST' }).then(pollBind);
+          };
+          return;
+        }
+        return loadWidget().then(function () {
+          bindWidget = new window.YooMoneyCheckoutWidget({ confirmation_token: j.confirmationToken, customization: { colors: WIDGET_COLORS },
+            error_callback: function () { bindMsg('Форма не загрузилась. Обновите страницу и попробуйте ещё раз.'); } });
+          bindWidget.on('complete', function () { if (bindWidget) { bindWidget.destroy(); bindWidget = null; } box.textContent = ''; pollBind(); });
+          bindWidget.render('bindWidget');
+        });
+      })
+      .catch(function (e) { box.textContent = ''; bindMsg(e.message || 'Не получилось, попробуйте ещё раз.'); });
+  }
+  function pollBind(n) {
+    n = n || 0;
+    bindMsg('Проверяем карту…');
+    fetch('/api/sub/' + encodeURIComponent(id) + '/card/bind?t=' + encodeURIComponent(t)).then(function (r) { return r.json(); }).then(function (j) {
+      if (j.status === 'pending' && n < 15) return setTimeout(function () { pollBind(n + 1); }, 2000);
+      if (j.status === 'bound') { bindDlg.close(); load(); return; }
+      bindMsg(j.message || 'Банк ещё не ответил. Обновите страницу через минуту.');
+    }).catch(function () { bindMsg('Нет связи с сервером, обновите страницу.'); });
+  }
+  bindDlg.addEventListener('click', function (e) { if (e.target.closest('[data-close]') || e.target === bindDlg) bindDlg.close(); });
+  bindDlg.addEventListener('close', function () { if (bindWidget) { bindWidget.destroy(); bindWidget = null; } });
+
   function openConfirm() {
-    document.getElementById('confirmCard').textContent = data.card || 'карта';
+    confirmAction = 'cancel';
+    document.getElementById('confirmTitle').textContent = 'Отмена постоянной брони';
+    document.getElementById('confirmQuestion').textContent = 'Уверены, что хотите отменить постоянную бронь?';
+    document.getElementById('confirmYes').textContent = 'Отменить бронь';
+    document.getElementById('confirmCard').textContent = data.card || 'карта не привязана';
     document.getElementById('confirmWarn').textContent = 'После отмены автосписаний больше не будет, закреплённое время освободится.' +
       (data.paidUntil ? ' Оплаченные занятия останутся за вами, последнее — ' + data.paidUntil + '.' : '');
     document.getElementById('confirmErr').textContent = '';
@@ -219,8 +337,10 @@
   document.getElementById('confirmYes').onclick = function () {
     var yes = this; yes.disabled = true;
     var done = function () { yes.disabled = false; dlg.close(); };
-    if (demo) { data.status = 'cancelled'; data.nextChargeAt = null; data.weeks = data.weeks.map(function (w) { return w.status === 'paid' ? w : { label: w.label, status: 'released', statusLabel: 'освобождено' }; }); render(data); return done(); }
-    fetch('/api/sub/' + encodeURIComponent(id) + '/cancel?t=' + encodeURIComponent(t), { method: 'POST' })
+    var release = function () { data.nextChargeAt = null; data.weeks = data.weeks.map(function (w) { return w.status === 'paid' ? w : { label: w.label, status: 'released', statusLabel: 'освобождено' }; }); };
+    if (demo && confirmAction === 'unbind') { data.card = ''; data.status = 'paused'; release(); render(data); return done(); }
+    if (demo) { data.status = 'cancelled'; release(); render(data); return done(); }
+    fetch('/api/sub/' + encodeURIComponent(id) + (confirmAction === 'unbind' ? '/card/unbind' : '/cancel') + '?t=' + encodeURIComponent(t), { method: 'POST' })
       .then(function (r) { if (!r.ok) throw new Error(); done(); load(); })
       .catch(function () { yes.disabled = false; document.getElementById('confirmErr').textContent = 'Не получилось, попробуйте ещё раз или позвоните нам.'; });
   };

@@ -466,11 +466,11 @@
   // «Оплатить по СБП»: сервер создаёт платёж СБП, переходим на страницу ЮKassa, оттуда вернёмся с ?pay=КОД
   function onSbp() {
     if (!current) return;
-    var b = $('sbpBtn'); b.disabled = true; b.textContent = 'Открываем СБП…';
+    var b = $('sbpBtn'); b.disabled = true; $('sbpLabel').textContent = 'Открываем СБП…';
     api('/api/book/' + current.code + '/sbp?token=' + current.token, { method: 'POST' }).then(function (r) {
       location.href = r.confirmationUrl;
     }).catch(function (err) {
-      b.disabled = false; b.textContent = 'Оплатить по СБП';
+      b.disabled = false; $('sbpLabel').textContent = 'Оплатить через СБП';
       $('payError').textContent = err.status ? err.message : 'Нет связи с сервером. Попробуйте ещё раз.';
     });
   }
@@ -500,7 +500,7 @@
     $('payTitle').textContent = 'Бронь ' + current.code + ' не оплачена';
     $('payStatus').textContent = 'Оплата по СБП не завершена. Попробуйте ещё раз или отмените бронь, тогда время сразу освободится.';
     $('paySbp').hidden = false;
-    var b = $('sbpBtn'); b.disabled = false; b.textContent = 'Оплатить по СБП ещё раз';
+    $('sbpBtn').disabled = false; $('sbpLabel').textContent = 'Оплатить через СБП ещё раз';
     if (current.deadline) { stopTimer(); tick(); timerId = setInterval(tick, 1000); }
   }
 

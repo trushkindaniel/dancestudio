@@ -240,3 +240,58 @@ test('личный кабинет: дата оформления, следующ
   assert.equal(v.nextChargeAt, null);
   assert.equal(v.paidUntil, '18.11.2026');
 });
+
+test('карта: отвязать — автосписаний нет, неоплаченные недели освобождены, бронь на паузе', async () => {
+  const e = env();
+  const { sub } = await startActive(e);
+  await assert.rejects(e.subs.unbindCard(sub.id, '0'.repeat(24)), (x) => x.status === 404);
+  await e.subs.unbindCard(sub.id, sub.token);
+  assert.equal(sub.paymentMethod, null);
+  assert.equal(sub.status, 'paused');
+  assert.ok(kinds(e.sent).includes('sub:card_unbound'));
+  assert.deepEqual((await e.booking.getBusy('2026-11-18', '2026-11-18'))['2026-11-18'], []);
+  assert.ok((await e.booking.getBusy('2026-11-11', '2026-11-11'))['2026-11-11'].includes(12)); // оплаченное остаётся
+  e.clock.now = new Date(at('2026-11-15', 12).getTime() + 60000);
+  e.sent.length = 0;
+  await e.subs.tick();
+  assert.deepEqual(e.sent, []);                                      // списаний нет
+});
+
+test('карта: привязать новую — проверочный 1 ₽ с сохранением карты, рубль вернули, бронь снова активна', async () => {
+  const e = env();
+  const { sub } = await startActive(e);
+  await e.subs.unbindCard(sub.id, sub.token);
+  const r = await e.subs.startBind(sub.id, sub.token);
+  assert.ok(r.confirmationToken);
+  const p = e.payments._get(sub.bindPaymentId);
+  assert.equal(p.amount.value, '1.00');
+  assert.equal(p.body.save_payment_method, true);
+  assert.match(p.body.description, /Проверка карты/);
+  assert.equal((await e.subs.bindStatus(sub.id, sub.token)).status, 'pending');
+  e.payments._set(sub.bindPaymentId, 'succeeded');
+  const done = await e.subs.bindStatus(sub.id, sub.token);
+  assert.equal(done.status, 'bound');
+  assert.equal(sub.status, 'active');
+  assert.ok(sub.paymentMethod.id);
+  assert.equal(e.payments._refunds.length, 1);
+  assert.equal(e.payments._refunds[0].amount, 1);
+  assert.ok(kinds(e.sent).includes('sub:card_bound'));
+  // освобождённые недели снова закреплены
+  assert.ok((await e.booking.getBusy('2026-11-18', '2026-11-18'))['2026-11-18'].includes(12));
+  // и списание снова работает
+  e.clock.now = new Date(at('2026-11-15', 12).getTime() + 60000);
+  await e.subs.tick();
+  assert.equal(sub.weeks.find((w) => w.k === 1).status, 'paid');
+});
+
+test('карта: привязка не прошла — карта прежняя, можно попробовать снова', async () => {
+  const e = env();
+  const { sub } = await startActive(e);
+  const before = sub.paymentMethod.id;
+  await e.subs.startBind(sub.id, sub.token);
+  e.payments._set(sub.bindPaymentId, 'canceled');
+  const r = await e.subs.bindStatus(sub.id, sub.token);
+  assert.equal(r.status, 'failed');
+  assert.equal(sub.paymentMethod.id, before);
+  assert.equal(sub.status, 'active');
+});

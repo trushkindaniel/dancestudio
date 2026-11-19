@@ -36,7 +36,7 @@ function normalize(p) {
 
 /** Тело платежа. Общее для настоящего API и имитации, чтобы тесты видели то же, что уйдёт в ЮKassa. */
 function paymentBody(cfg, b) {
-  const description = cut(`Аренда зала, бронь ${b.code}: ${b.dateLabel}, ${b.timeLabel}`, 128);
+  const description = cut(b.description || `Аренда зала, бронь ${b.code}: ${b.dateLabel}, ${b.timeLabel}`, 128);
   const body = {
     amount: money(b.total),
     capture: true,
@@ -54,7 +54,7 @@ function paymentBody(cfg, b) {
       // чек приходит на почту, а если её нет — СМС на телефон (формат ЮKassa: 79001234567)
       customer: b.email ? { email: b.email } : { phone: ruPhone(b.phone) },
       items: [{
-        description: cut(`Аренда танцевального зала, ${b.hoursCount} ч (бронь ${b.code})`, 128),
+        description: cut(b.receiptText || `Аренда танцевального зала, ${b.hoursCount} ч (бронь ${b.code})`, 128),
         quantity: '1.00',
         amount: money(b.total),
         vat_code: cfg.payment.vatCode,

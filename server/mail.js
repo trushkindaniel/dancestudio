@@ -253,6 +253,22 @@ const subTemplates = {
     return { subject, text, html };
   },
 
+  card_unbound(cfg, s) {
+    const subject = 'Карта отвязана от постоянной брони';
+    const msg = `Карта ${s.card} отвязана, автосписаний больше не будет. Неоплаченные занятия освобождены, постоянная бронь на паузе. Чтобы продолжить, привяжите карту в личном кабинете.`;
+    const text = `Здравствуйте, ${s.name}!\n\n${msg}\nЛичный кабинет: ${s.url}\n\n${cfg.studioName}`;
+    const html = layout(cfg, { preheader: msg, title: 'Карта отвязана', body: p(`Здравствуйте, ${esc(s.name)}!`) + p(esc(msg)) + button(s.url, 'Личный кабинет') });
+    return { subject, text, html };
+  },
+
+  card_bound(cfg, s) {
+    const subject = 'Карта привязана к постоянной брони';
+    const msg = `Карта ${s.card} привязана. Оплата ${money(s.weekTotal)} за каждое занятие будет списываться с неё за ${s.chargeDaysBefore} дн. до занятия. Проверочный 1 ₽ мы вернули.`;
+    const text = `Здравствуйте, ${s.name}!\n\n${msg}\nЛичный кабинет: ${s.url}\n\n${cfg.studioName}`;
+    const html = layout(cfg, { preheader: msg, title: 'Карта привязана', body: p(`Здравствуйте, ${esc(s.name)}!`) + p(esc(msg)) + button(s.url, 'Личный кабинет') });
+    return { subject, text, html };
+  },
+
   cancelled(cfg, s) {
     const subject = `Постоянная бронь отменена: ${s.schedule}`;
     const msg = 'Постоянная бронь отменена. Будущие неоплаченные занятия освобождены, автосписаний больше не будет. Уже оплаченные занятия остаются за вами.';
@@ -266,6 +282,7 @@ const subTemplates = {
 const ADMIN_TITLE = {
   started: 'оформлена', card_not_saved: 'карта не сохранилась, недели освобождены', charge_failed: 'не прошло списание',
   paused: 'на паузе: не оплачено к сроку, время освобождено', skipped: 'неделя пропущена: время занято', cancelled: 'отменена клиентом',
+  card_unbound: 'клиент отвязал карту, бронь на паузе', card_bound: 'клиент привязал карту',
 };
 function adminSub(cfg, kind, s) {
   const title = `Постоянная бронь ${s.id}: ${ADMIN_TITLE[kind] || kind}`;
